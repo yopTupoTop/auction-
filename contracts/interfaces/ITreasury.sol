@@ -2,6 +2,7 @@ pragma solidity ^0.8.20;
 
 interface ITreasury {
     function checkTrade(uint256 tokenId) external;
+
     function addNewPandingTrade(
         address sender,
         address recipient,

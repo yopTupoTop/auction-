@@ -8,6 +8,8 @@ interface IAssets is IERC721Upgradeable {
     }
 
     function lockToken(uint256 tokenId) external;
+
     function unlockToken(uint256 tokenId) external;
+
     function isLocked(uint256 tokenId) external view returns (bool);
 }

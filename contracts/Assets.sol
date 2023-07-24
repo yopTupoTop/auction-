@@ -12,13 +12,13 @@ import "node_modules/@openzeppelin/contracts-upgradeable/utils/cryptography/Merk
 import "contracts/interfaces/IAssets.sol";
 import "contracts/interfaces/IBlacklist.sol";
 
-contract Assets is 
-    Initializable, 
-    ERC721EnumerableUpgradeable, 
-    ERC721Upgradeable, 
-    PausableUpgradeable, 
-    OwnableUpgradeable, 
-    IAssets 
+contract Assets is
+    Initializable,
+    ERC721EnumerableUpgradeable,
+    ERC721Upgradeable,
+    PausableUpgradeable,
+    OwnableUpgradeable,
+    IAssets
 {
     using StringsUpgradeable for uint256;
     using CountersUpgradeable for CountersUpgradeable.Counter;
@@ -46,37 +46,51 @@ contract Assets is
         string memory baseUri,
         uint256 basePrice,
         uint256 additionalPrice,
-        address blacklistAddress) public initializer {
-            _baseUri = baseUri;
-            _uriSuffix = ".json";
-            _basePrice = basePrice;
-            _additionalPrice = additionalPrice;
+        address blacklistAddress
+    ) public initializer {
+        _baseUri = baseUri;
+        _uriSuffix = ".json";
+        _basePrice = basePrice;
+        _additionalPrice = additionalPrice;
 
-            _blacklist = IBlacklist(blacklistAddress);
+        _blacklist = IBlacklist(blacklistAddress);
 
-            __ERC721_init(name, symbol);
-            __ERC721Enumerable_init();
-            __Ownable_init();
-            __Pausable_init();
+        __ERC721_init(name, symbol);
+        __ERC721Enumerable_init();
+        __Ownable_init();
+        __Pausable_init();
     }
 
-    function mint(address to, string memory content) external payable whenNotPaused {
+    function mint(
+        address to,
+        string memory content
+    ) external payable whenNotPaused {
         require(_counter.current() < MAX_SUPPLY, "Assets: limit reached");
         require(!_blacklist.isInBlacklist(to), "Assets: user is in blacklist");
         require(!tokenClaimed[to], "Assets: user already claimed token");
-        require(msg.value = _basePrice + _additionalPrice, "Assets: not enougth ETH");
+        require(
+            msg.value = _basePrice + _additionalPrice,
+            "Assets: not enougth ETH"
+        );
         _counter.increment();
         _mint(to, _counter.current());
         ownedAssets[to][_counter.current()] = Asset(content);
         tokenClaimed[to] = true;
     }
 
-    function mintForWhitlist(address to, bytes32[] memory merkleProof, string memory content) external payable {
+    function mintForWhitlist(
+        address to,
+        bytes32[] memory merkleProof,
+        string memory content
+    ) external payable {
         require(_counter.current() < MAX_SUPPLY, "Assets: limit reached");
         require(!_blacklist.isInBlacklist(to), "Assets: user is in blacklist");
         require(!tokenClaimed[to], "Assets: user already claimed token");
         bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
-        require(MerkleProofUpgradeable.verify(merkleProof, _merkleRoot, leaf), "Assets: Incorrect proof");
+        require(
+            MerkleProofUpgradeable.verify(merkleProof, _merkleRoot, leaf),
+            "Assets: Incorrect proof"
+        );
         require(msg.value = _basePrice, "Assets: not enougth ETH");
         _counter.increment();
         _mint(to, _counter.current());
@@ -84,7 +98,10 @@ contract Assets is
         tokenClaimed[to] = true;
     }
 
-    function getContent(address user, uint256 tokenId) external view returns (string memory) {
+    function getContent(
+        address user,
+        uint256 tokenId
+    ) external view returns (string memory) {
         return string(ownedAssets[to][tokenId].content);
     }
 
@@ -108,5 +125,65 @@ contract Assets is
 
     function setMerkleRoot(bytes32 newRoot) external onlyOwner {
         _merkleRoot = newRoot;
+    }
+
+    function tokenURI(
+        uint256 tokenId
+    ) public view virtual override returns (string memory) {
+        require(
+            _exists(tokenId),
+            "ERC721Metadata: URI query for nonexistent token"
+        );
+        string memory baseUri = _baseURI();
+        return
+            bytes(baseUri).length > 0
+                ? string.concat(baseUri, tokenId.toString(), _uriSuffix)
+                : "";
+    }
+
+    function _baseURI() internal view override returns (string memory) {
+        return _baseUri;
+    }
+
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 tokenId
+    ) internal override(ERC721Upgradeable, ERC721EnumerableUpgradeable) {
+        super._beforeTokenTransfer(from, to, tokenId);
+        require(
+            !_blacklist.isInBlacklist(from),
+            "Assets: cannot transfer token from blacklisted user"
+        );
+        require(
+            !_blacklist.isInBlacklist(to),
+            "Assets: cannot transfer token to blacklisted user"
+        );
+        require(!_tokenLocked[tokenId], "Assets: token is at auction");
+        _ownedAssets[to][tokenId] = _ownedAssets[from][tokenId];
+        delete _ownedAssets[from][tokenId];
+    }
+
+    function pause() public onlyOwner {
+        _pause();
+    }
+
+    function unpause() public onlyOwner {
+        _unpause();
+    }
+
+    function supportsInterface(
+        bytes4 interfaceId
+    )
+        public
+        view
+        override(
+            ERC721Upgradeable,
+            ERC721EnumerableUpgradeable,
+            IERC165Upgradeable
+        )
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
     }
 }
