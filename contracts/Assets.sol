@@ -37,6 +37,8 @@ contract Assets is
     string private _uriSuffix;
     uint256 _basePrice;
     uint256 _additionalPrice;
+    bytes32 private _merkleRoot;
+    address private _auction;
 
     function initialize(
         string memory name,
@@ -67,5 +69,44 @@ contract Assets is
         _mint(to, _counter.current());
         ownedAssets[to][_counter.current()] = Asset(content);
         tokenClaimed[to] = true;
+    }
+
+    function mintForWhitlist(address to, bytes32[] memory merkleProof, string memory content) external payable {
+        require(_counter.current() < MAX_SUPPLY, "Assets: limit reached");
+        require(!_blacklist.isInBlacklist(to), "Assets: user is in blacklist");
+        require(!tokenClaimed[to], "Assets: user already claimed token");
+        bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
+        require(MerkleProofUpgradeable.verify(merkleProof, _merkleRoot, leaf), "Assets: Incorrect proof");
+        require(msg.value = _basePrice, "Assets: not enougth ETH");
+        _counter.increment();
+        _mint(to, _counter.current());
+        ownedAssets[to][_counter.current()] = Asset(content);
+        tokenClaimed[to] = true;
+    }
+
+    function getContent(address user, uint256 tokenId) external view returns (string memory) {
+        return string(ownedAssets[to][tokenId].content);
+    }
+
+    function lockToken(uint256 tokenId) external {
+        require(msg.sender == _auction, "Assets: sender is not auction");
+        tokenLocked[tokenId] = true;
+    }
+
+    function unlockToken(uint256 tokenId) external {
+        require(msg.sender == _auction, "Assets: sender is not auction");
+        tokenLocked[tokenId] = false;
+    }
+
+    function isLocked(uint256 tokenId) external view returns (bool) {
+        return tokenLocked[tokenId];
+    }
+
+    function setAuctionAddress(address auctionAddress) external onlyOwner {
+        _auction = auctionAddress;
+    }
+
+    function setMerkleRoot(bytes32 newRoot) external onlyOwner {
+        _merkleRoot = newRoot;
     }
 }
