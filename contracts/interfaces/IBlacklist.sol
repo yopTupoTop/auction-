@@ -1,4 +1,4 @@
-pragma solidity ^0.8.17;
+pragma solidity ^0.8.20;
 
 interface IBlacklist {
     function addToBlacklist(address user) external;
