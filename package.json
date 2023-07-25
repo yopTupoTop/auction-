@@ -1,5 +1,11 @@
 {
   "name": "hardhat-project",
+  "scripts": {
+    "prettier": "prettier --write contracts/*.sol && prettier --write contracts/interfaces/*.sol",
+    "coverage": "npx hardhat coverage",
+    "build": "npx hardhat compile",
+    "test": "npx hardhat test"
+  },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^3.0.0",
     "hardhat": "^2.15.0",

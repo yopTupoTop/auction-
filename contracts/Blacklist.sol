@@ -1,11 +1,11 @@
-pragma solidity 0.8.20;
+pragma solidity ^0.8.18;
 
-import "node_modules/@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "contracts/interfaces/IBlacklist.sol";
 
 contract Blacklist is IBlacklist, Ownable {
-    mapping(address user => bool flag) _blacklisted;
+    mapping(address=> bool) _blacklisted;
 
     function addToBlacklist(address user) external {
         require(!_blacklisted[user], "Blacklist: user already blacklisted");
