@@ -62,6 +62,18 @@ contract Treasury is ITreasury, Ownable {
         }
     }
 
+    function pay(uint256 tokenId) external payable {
+        PendingTrade memory tradeInformation = pendingTrades[tokenId];
+        require(
+            tradeInformation.oldOwner != address(0) || tradeInformation.newOwner != address(0),
+            "Treasury: this trade doesn't exist"
+        );
+        require(!tradeInformation.paid, "Treasury: trade already paid");
+        require(msg.sender == tradeInformation.newOwner, "Treasury: you are not a new owner");
+        require(msg.value == tradeInformation.price, "Treasury: not enougth ETH");
+        pendingTrades[tokenId].paid = true;
+    }
+
     function addNewPandingTrade(
         address sender, 
         address recipient, 
@@ -69,6 +81,23 @@ contract Treasury is ITreasury, Ownable {
         uint256 timestamp, 
         uint256 price
     ) external {
+        require(msg.sender == _auction, "Treasury: only auction has access");
+        if (pendingTrades[tokenId].paid) {
+            delete pendingTrades[tokenId];
+        }
 
+        pendingTrades[tokenId] = PendingTrade(
+            sender,
+            recipient,
+            uint64(price),
+            uint32(timestamp),
+            false
+        );
+        allTokensInPending.push(tokenId);
+        tokenIndexes[tokenId] = allTokensInPending.length - 1;
+    }
+
+    function setAuctionAddress(address auctionAddress) external onlyOwner {
+        _auction = auctionAddress;
     }
 }
