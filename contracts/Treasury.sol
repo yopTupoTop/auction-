@@ -33,7 +33,8 @@ contract Treasury is ITreasury, Ownable {
     function checkTrade(uint256 tokenId) external {
         PendingTrade memory tradeInformation = pendingTrades[tokenId];
         require(
-            tradeInformation.oldOwner != address(0) || tradeInformation.newOwner != address(0), 
+            tradeInformation.oldOwner != address(0) ||
+                tradeInformation.newOwner != address(0),
             "Treasury: this trade doesn't exist"
         );
         if (block.timestamp >= tradeInformation.time + DURATION) {
@@ -42,7 +43,7 @@ contract Treasury is ITreasury, Ownable {
                 return;
             }
 
-            if(msg.sender == tradeInformation.newOwner) {
+            if (msg.sender == tradeInformation.newOwner) {
                 require(tradeInformation.paid, "Treasury: trade time expired");
             }
         }
@@ -50,8 +51,9 @@ contract Treasury is ITreasury, Ownable {
         require(tradeInformation.paid, "Treasury: not paid yet");
         if (msg.sender == tradeInformation.oldOwner) {
             (bool success, ) = msg.sender.call{
-                value: tradeInformation.price - (tradeInformation.price / 100 - FEE)
-                }("Your token has beed purchased");
+                value: tradeInformation.price -
+                    (tradeInformation.price / 100 - FEE)
+            }("Your token has beed purchased");
             require(success, "Treasury: faild to send ETH");
         }
 
@@ -63,20 +65,27 @@ contract Treasury is ITreasury, Ownable {
     function pay(uint256 tokenId) external payable {
         PendingTrade memory tradeInformation = pendingTrades[tokenId];
         require(
-            tradeInformation.oldOwner != address(0) || tradeInformation.newOwner != address(0),
+            tradeInformation.oldOwner != address(0) ||
+                tradeInformation.newOwner != address(0),
             "Treasury: this trade doesn't exist"
         );
         require(!tradeInformation.paid, "Treasury: trade already paid");
-        require(msg.sender == tradeInformation.newOwner, "Treasury: you are not a new owner");
-        require(msg.value == tradeInformation.price, "Treasury: not enougth ETH");
+        require(
+            msg.sender == tradeInformation.newOwner,
+            "Treasury: you are not a new owner"
+        );
+        require(
+            msg.value == tradeInformation.price,
+            "Treasury: not enougth ETH"
+        );
         pendingTrades[tokenId].paid = true;
     }
 
     function addNewPandingTrade(
-        address sender, 
-        address recipient, 
-        uint256 tokenId, 
-        uint256 timestamp, 
+        address sender,
+        address recipient,
+        uint256 tokenId,
+        uint256 timestamp,
         uint256 price
     ) external {
         require(msg.sender == _auction, "Treasury: only auction has access");

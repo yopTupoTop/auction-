@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "contracts/interfaces/IBlacklist.sol";
 
 contract Blacklist is IBlacklist, Ownable {
-    mapping(address=> bool) _blacklisted;
+    mapping(address => bool) _blacklisted;
 
     function addToBlacklist(address user) external {
         require(!_blacklisted[user], "Blacklist: user already blacklisted");

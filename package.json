@@ -1,7 +1,7 @@
 {
   "name": "hardhat-project",
   "scripts": {
-    "prettier": "prettier --write contracts/*.sol && prettier --write contracts/interfaces/*.sol",
+    "prettier": "prettier --write --plugin=prettier-plugin-solidity 'contracts/**/*.sol'",
     "coverage": "npx hardhat coverage",
     "build": "npx hardhat compile",
     "test": "npx hardhat test"

@@ -68,7 +68,10 @@ contract Assets is
         require(_counter.current() < MAX_SUPPLY, "Assets: limit reached");
         require(!_blacklist.isInBlacklist(to), "Assets: user is in blacklist");
         require(!tokenClaimed[to], "Assets: user already claimed token");
-        require(msg.value == _basePrice + _additionalPrice,"Assets: not enougth ETH");
+        require(
+            msg.value == _basePrice + _additionalPrice,
+            "Assets: not enougth ETH"
+        );
         _counter.increment();
         _mint(to, _counter.current());
         ownedAssets[to][_counter.current()] = Asset(content);
@@ -142,10 +145,15 @@ contract Assets is
         return _baseUri;
     }
 
-    function _beforeTokenTransfer(address from, address to, uint256 tokenId, uint256 batchSize)
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 tokenId,
+        uint256 batchSize
+    )
         internal
-        whenNotPaused
         override(ERC721Upgradeable, ERC721EnumerableUpgradeable)
+        whenNotPaused
     {
         super._beforeTokenTransfer(from, to, tokenId, batchSize);
         require(
