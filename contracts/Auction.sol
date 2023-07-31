@@ -131,6 +131,79 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
     }
 
     //--------------------
+    // buyer functions
+    //--------------------
+
+    function buAsset(uint256 tokenId) external payable whenNotPaused {
+        require(!_isContract(msg.sender), "Auction: only EOA");
+        require(msg.value == lastBid[tokenId].price, "Assets: not enougth ETH");
+        require(
+            lastBid[tokenId].price == initPrice[tokenId],
+            "Auction: can only be purchased if no bids have been placed"
+        );
+        require(
+            lastBid[tokenId].user != msg.sender,
+            "Auction: you tried to buy your token"
+        );
+        (bool sent, ) = assetOwner[tokenId].call{
+            value: msg.value - (msg.value / 100) * FEE
+        }("Your token has been purchased");
+        require(sent, "Auction: failed to send Ether");
+        require(
+            !_blacklist.isInBlacklist(msg.sender),
+            "Auction: blacklisted user cannot buy"
+        );
+
+        _assets.unlockToken(tokenId);
+        _assets.transferFrom(assetOwner[tokenId], msg.sender, tokenId);
+        if (allTokens.length < 2) {
+            allTokens.pop();
+        } else {
+            uint256 index = assetIndex[tokenId];
+            allTokens[index] = allTokens[tokensAmount - 1];
+            allTokens.pop();
+        }
+        _deleteAssetData(tokenId);
+        tokensAmount--;
+    }
+
+    function placeBid(uint256 tokenId, uint256 price) external whenNotPaused {
+        require(!_isContract(msg.sender), "Auction: only EOA");
+        require(
+            !_blacklist.isInBlacklist(msg.sender),
+            "Auction: blacklisted user cannot buy"
+        );
+        require(
+            price >=
+                lastBid[tokenId].price +
+                    (lastBid[tokenId].price / 100) *
+                    DISTINCTION,
+            "Auction: the next bet must be greater than than the previous one + 3%"
+        );
+        Bid memory newBid = Bid(
+            uint32(block.timestamp),
+            uint128(price),
+            msg.sender
+        );
+        lastBid[tokenId] = newBid;
+    }
+
+    function getLastBid(
+        uint256 tokenId
+    ) external view returns (uint256, uint256, address) {
+        Bid memory tmp = lastBid[tokenId];
+        return (tmp.time, tmp.price, tmp.user);
+    }
+
+    function getAllAssetIds() external view returns (uint256[] memory) {
+        return allTokens;
+    }
+
+    function getOwnerOfAsset(uint256 tokenId) external view returns (address) {
+        return assetOwner[tokenId];
+    }
+
+    //--------------------
     // internal functions
     //--------------------
 
