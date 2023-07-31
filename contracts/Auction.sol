@@ -31,6 +31,38 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
     mapping(uint256 id => address owner) private assetOwner;
     mapping(uint256 id => uint256 allTokensIndex) private assetIndex;
 
+    event PlaceAsset(
+        address seller,
+        uint256 tokenId,
+        uint256 price,
+        uint256 time
+    );
+    event CancelAsset(
+        address seller,
+        uint256 tokenId,
+        uint256 price,
+        uint256 time
+    );
+    event AcceptOffer(
+        address seller,
+        address buyer,
+        uint256 tokenId,
+        uint256 price,
+        uint256 time
+    );
+    event BuyAsset(
+        address bidder,
+        uint256 tokenId,
+        uint256 price,
+        uint256 time
+    );
+    event PlaceBid(
+        address bidder,
+        uint256 tokenId,
+        uint256 price,
+        uint256 time
+    );
+
     function initialize(
         address assetsAddress,
         address treasuryAddress,
@@ -45,7 +77,7 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
     }
 
     //--------------------
-    // saller functions
+    // seller functions
     //--------------------
 
     function sellAsset(uint256 tokenId, uint256 price) external whenNotPaused {
@@ -70,6 +102,7 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
         allTokens.push(tokenId);
         assetIndex[tokenId] = allTokens.length - 1;
         tokensAmount++;
+        emit PlaceAsset(msg.sender, tokenId, price, block.timestamp);
     }
 
     function cancelAsset(uint256 tokenId) external whenNotPaused {
@@ -93,6 +126,7 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
         _assets.unlockToken(tokenId);
         _deleteAssetData(tokenId);
         tokensAmount--;
+        emit CancelAsset(msg.sender, tokenId, lastBid[tokenId].price, block.timestamp);
     }
 
     function acceptOffer(uint256 tokenId) external whenNotPaused {
@@ -128,6 +162,8 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
             lastBid[tokenId].price
         );
         _deleteAssetData(tokenId);
+
+        emit AcceptOffer(msg.sender, lastBid[tokenId].user, tokenId, lastBid[tokenId].price, block.timestamp);
     }
 
     //--------------------
@@ -165,6 +201,7 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
         }
         _deleteAssetData(tokenId);
         tokensAmount--;
+        emit BuyAsset(msg.sender, tokenId, lastBid[tokenId].price, block.timestamp);
     }
 
     function placeBid(uint256 tokenId, uint256 price) external whenNotPaused {
@@ -186,6 +223,7 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
             msg.sender
         );
         lastBid[tokenId] = newBid;
+        emit PlaceBid(msg.sender, tokenId, price, block.timestamp);
     }
 
     function getLastBid(
@@ -221,4 +259,26 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
         delete assetOwner[tokenId];
         delete assetIndex[tokenId];
     }
+
+    //--------------------
+    // admin functions
+    //--------------------
+
+     function getAllEth() external onlyOwner {
+        (bool sent, ) = msg.sender.call{value: address(this).balance}(
+            "ETH withdrowal"
+        );
+        require(sent, "Auction: failed to send Ether");
+    }
+
+    function pause() public onlyOwner {
+        _pause();
+    }
+
+    function unpause() public onlyOwner {
+        _unpause();
+    }
+
+    receive() external payable {}
+
 }
