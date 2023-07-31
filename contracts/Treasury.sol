@@ -26,8 +26,6 @@ contract Treasury is ITreasury, Ownable {
 
     uint256[] private allTokensInPending;
 
-    event MoneyReceived(address indexed from, uint256 indexed amount, bytes msgData);
-
     constructor(address assetsAddress) {
         _assets = IAssets(assetsAddress);
     }
