@@ -18,6 +18,8 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
     ITreasury private _treasury;
     IBlacklist private _blacklist;
 
+    uint256 private _tokenId;
+
     struct Bid {
         uint32 time;
         uint128 price;
@@ -26,6 +28,7 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
 
     uint256[] private allTokens;
 
+    //TODO: change to single token id
     mapping(uint256 id => Bid) private lastBid;
     mapping(uint256 id => uint256 initialPrice) private initPrice;
     mapping(uint256 id => address owner) private assetOwner;
@@ -66,11 +69,13 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
     function initialize(
         address assetsAddress,
         address treasuryAddress,
-        address blacklistAddress
+        address blacklistAddress,
+        uint256 tokenId
     ) public initializer {
         _assets = IAssets(assetsAddress);
         _treasury = ITreasury(treasuryAddress);
         _blacklist = IBlacklist(blacklistAddress);
+        _tokenId = tokenId;
 
         __Pausable_init();
         __Ownable_init();
@@ -80,63 +85,63 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
     // seller functions
     //--------------------
 
-    function sellAsset(uint256 tokenId, uint256 price) external whenNotPaused {
+    function sellAsset(uint256 price) external whenNotPaused {
         require(!_isContract(msg.sender), "Auction: only EOA");
         require(
-            msg.sender == _assets.ownerOf(tokenId),
+            msg.sender == _assets.ownerOf(_tokenId),
             "Auction: you're not the owner"
         );
         require(
             !_blacklist.isInBlacklist(msg.sender),
             "Auction: blacklisted users can't sell"
         );
-        require(lastBid[tokenId].time == 0, "Auction: token already placed");
-        _assets.lockToken(tokenId);
-        lastBid[tokenId] = Bid(
+        require(lastBid[_tokenId].time == 0, "Auction: token already placed");
+        _assets.lockToken(_tokenId);
+        lastBid[_tokenId] = Bid(
             uint32(block.timestamp),
             uint128(price),
             msg.sender
         );
-        initPrice[tokenId] = price;
-        assetOwner[tokenId] = msg.sender;
-        allTokens.push(tokenId);
-        assetIndex[tokenId] = allTokens.length - 1;
+        initPrice[_tokenId] = price;
+        assetOwner[_tokenId] = msg.sender;
+        allTokens.push(_tokenId);
+        assetIndex[_tokenId] = allTokens.length - 1;
         tokensAmount++;
-        emit PlaceAsset(msg.sender, tokenId, price, block.timestamp);
+        emit PlaceAsset(msg.sender, _tokenId, price, block.timestamp);
     }
 
-    function cancelAsset(uint256 tokenId) external whenNotPaused {
+    function cancelAsset() external whenNotPaused {
         require(!_isContract(msg.sender), "Auction: only EOA");
         require(
-            msg.sender == _assets.ownerOf(tokenId),
+            msg.sender == _assets.ownerOf(_tokenId),
             "Auction: you're not the owner"
         );
         require(
-            lastBid[tokenId].time != 0,
+            lastBid[_tokenId].time != 0,
             "Auction: token is not for sale on the auction"
         );
         if (allTokens.length < 2) {
             allTokens.pop();
         } else {
-            uint256 tokenIndex = assetIndex[tokenId];
+            uint256 tokenIndex = assetIndex[_tokenId];
             allTokens[tokenIndex] = allTokens[tokensAmount - 1];
             allTokens.pop();
         }
 
-        _assets.unlockToken(tokenId);
-        _deleteAssetData(tokenId);
+        _assets.unlockToken(_tokenId);
+        _deleteAssetData();
         tokensAmount--;
-        emit CancelAsset(msg.sender, tokenId, lastBid[tokenId].price, block.timestamp);
+        emit CancelAsset(msg.sender, _tokenId, lastBid[_tokenId].price, block.timestamp);
     }
 
-    function acceptOffer(uint256 tokenId) external whenNotPaused {
+    function acceptOffer() external whenNotPaused {
         require(!_isContract(msg.sender), "Auction: only EOA");
         require(
-            msg.sender == _assets.ownerOf(tokenId),
+            msg.sender == _assets.ownerOf(_tokenId),
             "Auction: you are not the owner of token"
         );
         require(
-            msg.sender != lastBid[tokenId].user,
+            msg.sender != lastBid[_tokenId].user,
             "Auction: you tried to buy your token"
         );
         require(
@@ -146,42 +151,42 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
         if (allTokens.length < 2) {
             allTokens.pop();
         } else {
-            uint256 tokenIndex = assetIndex[tokenId];
+            uint256 tokenIndex = assetIndex[_tokenId];
             allTokens[tokenIndex] = allTokens[tokensAmount - 1];
             allTokens.pop();
         }
 
         tokensAmount--;
-        _assets.unlockToken(tokenId);
-        _assets.transferFrom(msg.sender, address(_treasury), tokenId);
+        _assets.unlockToken(_tokenId);
+        _assets.transferFrom(msg.sender, address(_treasury), _tokenId);
         _treasury.addNewPandingTrade(
             msg.sender,
-            lastBid[tokenId].user,
-            tokenId,
-            lastBid[tokenId].time,
-            lastBid[tokenId].price
+            lastBid[_tokenId].user,
+            _tokenId,
+            lastBid[_tokenId].time,
+            lastBid[_tokenId].price
         );
-        _deleteAssetData(tokenId);
+        _deleteAssetData();
 
-        emit AcceptOffer(msg.sender, lastBid[tokenId].user, tokenId, lastBid[tokenId].price, block.timestamp);
+        emit AcceptOffer(msg.sender, lastBid[_tokenId].user, _tokenId, lastBid[_tokenId].price, block.timestamp);
     }
 
     //--------------------
     // buyer functions
     //--------------------
 
-    function buAsset(uint256 tokenId) external payable whenNotPaused {
+    function buyAsset() external payable whenNotPaused {
         require(!_isContract(msg.sender), "Auction: only EOA");
-        require(msg.value == lastBid[tokenId].price, "Assets: not enougth ETH");
+        require(msg.value == lastBid[_tokenId].price, "Assets: not enougth ETH");
         require(
-            lastBid[tokenId].price == initPrice[tokenId],
+            lastBid[_tokenId].price == initPrice[_tokenId],
             "Auction: can only be purchased if no bids have been placed"
         );
         require(
-            lastBid[tokenId].user != msg.sender,
+            lastBid[_tokenId].user != msg.sender,
             "Auction: you tried to buy your token"
         );
-        (bool sent, ) = assetOwner[tokenId].call{
+        (bool sent, ) = assetOwner[_tokenId].call{
             value: msg.value - (msg.value / 100) * FEE
         }("Your token has been purchased");
         require(sent, "Auction: failed to send Ether");
@@ -190,21 +195,21 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
             "Auction: blacklisted user cannot buy"
         );
 
-        _assets.unlockToken(tokenId);
-        _assets.transferFrom(assetOwner[tokenId], msg.sender, tokenId);
+        _assets.unlockToken(_tokenId);
+        _assets.transferFrom(assetOwner[_tokenId], msg.sender, _tokenId);
         if (allTokens.length < 2) {
             allTokens.pop();
         } else {
-            uint256 index = assetIndex[tokenId];
+            uint256 index = assetIndex[_tokenId];
             allTokens[index] = allTokens[tokensAmount - 1];
             allTokens.pop();
         }
-        _deleteAssetData(tokenId);
+        _deleteAssetData();
         tokensAmount--;
-        emit BuyAsset(msg.sender, tokenId, lastBid[tokenId].price, block.timestamp);
+        emit BuyAsset(msg.sender, _tokenId, lastBid[_tokenId].price, block.timestamp);
     }
 
-    function placeBid(uint256 tokenId, uint256 price) external whenNotPaused {
+    function placeBid(uint256 price) external whenNotPaused {
         require(!_isContract(msg.sender), "Auction: only EOA");
         require(
             !_blacklist.isInBlacklist(msg.sender),
@@ -212,8 +217,8 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
         );
         require(
             price >=
-                lastBid[tokenId].price +
-                    (lastBid[tokenId].price / 100) *
+                lastBid[_tokenId].price +
+                    (lastBid[_tokenId].price / 100) *
                     DISTINCTION,
             "Auction: the next bet must be greater than than the previous one + 3%"
         );
@@ -222,14 +227,12 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
             uint128(price),
             msg.sender
         );
-        lastBid[tokenId] = newBid;
-        emit PlaceBid(msg.sender, tokenId, price, block.timestamp);
+        lastBid[_tokenId] = newBid;
+        emit PlaceBid(msg.sender, _tokenId, price, block.timestamp);
     }
 
-    function getLastBid(
-        uint256 tokenId
-    ) external view returns (uint256, uint256, address) {
-        Bid memory tmp = lastBid[tokenId];
+    function getLastBid() external view returns (uint256, uint256, address) {
+        Bid memory tmp = lastBid[_tokenId];
         return (tmp.time, tmp.price, tmp.user);
     }
 
@@ -237,8 +240,8 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
         return allTokens;
     }
 
-    function getOwnerOfAsset(uint256 tokenId) external view returns (address) {
-        return assetOwner[tokenId];
+    function getOwnerOfAsset() external view returns (address) {
+        return assetOwner[_tokenId];
     }
 
     //--------------------
@@ -253,11 +256,11 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
         return (size > 0);
     }
 
-    function _deleteAssetData(uint256 tokenId) internal {
-        delete lastBid[tokenId];
-        delete initPrice[tokenId];
-        delete assetOwner[tokenId];
-        delete assetIndex[tokenId];
+    function _deleteAssetData() internal {
+        delete lastBid[_tokenId];
+        delete initPrice[_tokenId];
+        delete assetOwner[_tokenId];
+        delete assetIndex[_tokenId];
     }
 
     //--------------------
