@@ -81,4 +81,31 @@ describe("Assets tests", () => {
             await expect(assets.connect(address2).mintForWhitelist(address2.address, merkleProof, content, {value: ADDITIONAL_PRICE})).revertedWith("Assets: user is in blacklist");
         });
     });
+
+    describe("simple mint", async() => {
+        it("successful mint", async() => {
+            let content = "mint";
+            
+            await assets.connect(address1).mint(address1.address, content, {value: BASE_PRICE + ADDITIONAL_PRICE});
+            expect(await assets.balanceOf(address1.address)).to.equal(ethers.getBigInt("1"));
+
+            let tokenId = await assets.tokenOfOwnerByIndex(address1.address, 0);
+            expect(await assets.getContent(address1.address, tokenId)).to.equal(content);
+
+            let tokenUri = await assets.tokenURI(tokenId);
+            expect(tokenUri).to.equal(BASE_URI + 1 + ".json");
+        });
+        it("mint with unsufficient balance", async() => {
+            let content = "mint";
+            
+            await expect(assets.connect(address1).mint(address1.address, content, {value: BASE_PRICE})).revertedWith("Assets: not enougth ETH");
+        });
+        it("mint for user from blacklist", async() => {
+            let content = "mint";
+            
+            await blacklist.addToBlacklist(address1.address);
+
+            await expect(assets.connect(address1).mint(address1.address, content, {value: BASE_PRICE + ADDITIONAL_PRICE})).revertedWith("Assets: user is in blacklist");
+        });
+    });
 })
