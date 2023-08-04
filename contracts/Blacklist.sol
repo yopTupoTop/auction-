@@ -7,12 +7,12 @@ import "contracts/interfaces/IBlacklist.sol";
 contract Blacklist is IBlacklist, Ownable {
     mapping(address => bool) _blacklisted;
 
-    function addToBlacklist(address user) external {
+    function addToBlacklist(address user) external onlyOwner{
         require(!_blacklisted[user], "Blacklist: user already blacklisted");
         _blacklisted[user] = true;
     }
 
-    function removeFromBlacklist(address user) external {
+    function removeFromBlacklist(address user) external onlyOwner{
         require(_blacklisted[user], "Blacklist: user not in blacklist");
         _blacklisted[user] = false;
     }

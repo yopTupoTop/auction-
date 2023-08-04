@@ -78,7 +78,7 @@ contract Assets is
         tokenClaimed[to] = true;
     }
 
-    function mintForWhitlist(
+    function mintForWhitelist(
         address to,
         bytes32[] memory merkleProof,
         string memory content
