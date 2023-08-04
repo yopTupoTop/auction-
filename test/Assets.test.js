@@ -108,4 +108,29 @@ describe("Assets tests", () => {
             await expect(assets.connect(address1).mint(address1.address, content, {value: BASE_PRICE + ADDITIONAL_PRICE})).revertedWith("Assets: user is in blacklist");
         });
     });
+
+    describe("transfer tokens", async() => {
+        it("transfer token from user in blacklist", async() => {
+            let content = "mint";
+            await assets.connect(address2).mint(address2.address, content, {value: BASE_PRICE + ADDITIONAL_PRICE});
+
+            await blacklist.addToBlacklist(address2.address);
+            await expect(assets.connect(address2).transferFrom(address2.address, address1.address, 1)).revertedWith("Assets: cannot transfer token from blacklisted user");
+        });
+        it("transfer to user in blacklist", async() => {
+            let content = "First mint!";
+            await assets.connect(address2).mint(address2.address, content, {value: BASE_PRICE + ADDITIONAL_PRICE});
+
+            await blacklist.addToBlacklist(address1.address);
+            await expect(assets.connect(address2).transferFrom(address2.address, address1.address, 1)).revertedWith("Assets: cannot transfer token to blacklisted user");
+        });
+        it("content transfer with token", async() => {
+            let content = "mint";
+            await assets.connect(address2).mint(address2.address, content, {value: BASE_PRICE + ADDITIONAL_PRICE});
+            await assets.connect(address2).transferFrom(address2.address, address1.address, 1);
+
+            expect(await assets.getContent(address2.address, 1)).to.equal("");
+            expect(await assets.getContent(address1.address, 1)).to.equal(content);
+        });
+    });
 })
