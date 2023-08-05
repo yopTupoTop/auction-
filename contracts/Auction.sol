@@ -18,6 +18,8 @@ contract Auction is Initializable, PausableUpgradeable, AccessControlUpgradeable
     ITreasury private _treasury;
     IBlacklist private _blacklist;
 
+    address private _factory;
+
     uint256 private _tokenId;
 
     struct Bid {
@@ -66,11 +68,13 @@ contract Auction is Initializable, PausableUpgradeable, AccessControlUpgradeable
         address assetsAddress,
         address treasuryAddress,
         address blacklistAddress,
+        address factoryAddress,
         uint256 tokenId
     ) public initializer {
         _assets = IAssets(assetsAddress);
         _treasury = ITreasury(treasuryAddress);
         _blacklist = IBlacklist(blacklistAddress);
+        _factory = factoryAddress;
         _tokenId = tokenId;
         assetOwner = msg.sender;
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -99,6 +103,9 @@ contract Auction is Initializable, PausableUpgradeable, AccessControlUpgradeable
         _assets.lockToken(_tokenId);
         lastBid = Bid(uint32(block.timestamp), uint128(price), msg.sender);
         initPrice = price;
+        (bool success, ) = _factory.delegatecall(
+            abi.encodeWithSignature("updateRelevance(address, bool)", address(this), true));
+            require(success, "Auction: update failed");
         emit PlaceAsset(msg.sender, _tokenId, price, block.timestamp);
     }
 
@@ -142,7 +149,6 @@ contract Auction is Initializable, PausableUpgradeable, AccessControlUpgradeable
             lastBid.time,
             lastBid.price
         );
-        //TODO: is don't paid -> unpause
         stopAuction();
 
         emit AcceptOffer(
@@ -233,6 +239,9 @@ contract Auction is Initializable, PausableUpgradeable, AccessControlUpgradeable
         assetOwner = lastBid.user;
         delete lastBid;
         delete initPrice;
+        (bool success, ) = _factory.delegatecall(
+            abi.encodeWithSignature("updateRelevance(address, bool)", address(this), false));
+        require(success, "Auction: update auction relevance");
         pause();
     }
 

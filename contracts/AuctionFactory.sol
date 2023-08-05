@@ -10,7 +10,7 @@ contract AuctionFactory {
 
     uint256 private _tokenId;
 
-    mapping(address auction => bool sold) public auctionRelevance;
+    mapping(address auction => bool relevance) public auctionRelevance;
 
     constructor(
         address treasury,
@@ -29,5 +29,9 @@ contract AuctionFactory {
         newAuction.initialize(_assets, _treasury, _blacklist, _tokenId);
         auctionRelevance[address(newAuction)] = false;
         return (address(newAuction));
+    }
+
+    function updateRelevance(address auction, bool relevance) external {
+        auctionRelevance[auction] = relevance;
     }
 }
