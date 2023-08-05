@@ -11,7 +11,7 @@ contract Treasury is ITreasury, Ownable {
 
     IAssets private _assets;
 
-    address private _auction;
+    address private _auctionAddress;
 
     mapping(uint256 tokenId => PendingTrade tradeDetails) private pendingTrades;
     mapping(uint256 tokenId => uint256 allTIPIndex) private tokenIndexes;
@@ -40,6 +40,8 @@ contract Treasury is ITreasury, Ownable {
         if (block.timestamp >= tradeInformation.time + DURATION) {
             if (msg.sender == tradeInformation.oldOwner) {
                 _assets.transferFrom(address(this), msg.sender, tokenId);
+                (bool success, ) = _auctionAddress.delegatecall(abi.encodeWithSignature("unpause()"));
+                require(success, "Treasury: unpause faild");
                 return;
             }
 
@@ -88,7 +90,7 @@ contract Treasury is ITreasury, Ownable {
         uint256 timestamp,
         uint256 price
     ) external {
-        require(msg.sender == _auction, "Treasury: only auction has access");
+        require(msg.sender == _auctionAddress, "Treasury: only auction has access");
         if (pendingTrades[tokenId].paid) {
             delete pendingTrades[tokenId];
         }
@@ -105,6 +107,6 @@ contract Treasury is ITreasury, Ownable {
     }
 
     function setAuctionAddress(address auctionAddress) external onlyOwner {
-        _auction = auctionAddress;
+        _auctionAddress = auctionAddress;
     }
 }

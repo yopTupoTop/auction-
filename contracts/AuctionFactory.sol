@@ -10,7 +10,14 @@ contract AuctionFactory {
 
     uint256 private _tokenId;
 
-    constructor(address treasury, address blacklist, address assets, uint256 tokenId) {
+    mapping(address auction => bool sold) public auctionRelevance;
+
+    constructor(
+        address treasury,
+        address blacklist,
+        address assets,
+        uint256 tokenId
+    ) {
         _treasury = treasury;
         _blacklist = blacklist;
         _assets = assets;
@@ -18,7 +25,9 @@ contract AuctionFactory {
     }
 
     function deployAuction() external returns (address) {
-
+        Auction newAuction = new Auction();
+        newAuction.initialize(_assets, _treasury, _blacklist, _tokenId);
+        auctionRelevance[address(newAuction)] = false;
+        return (address(newAuction));
     }
 }
-

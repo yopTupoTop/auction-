@@ -1,18 +1,18 @@
 pragma solidity ^0.8.18;
 
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 import "contracts/interfaces/IAssets.sol";
 import "contracts/interfaces/IBlacklist.sol";
 import "contracts/interfaces/ITreasury.sol";
 
-contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
+contract Auction is Initializable, PausableUpgradeable, AccessControlUpgradeable {
     uint256 public constant FEE = 3;
     uint256 public constant DISTINCTION = 3;
-
-    uint256 public tokensAmount;
+    bytes32 private constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    bytes32 private constant UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
 
     IAssets private _assets;
     ITreasury private _treasury;
@@ -26,14 +26,10 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
         address user;
     }
 
-    uint256[] private allTokens;
-
-    //TODO: change to single token id
-    mapping(uint256 id => Bid) private lastBid;
-    mapping(uint256 id => uint256 initialPrice) private initPrice;
-    mapping(uint256 id => address owner) private assetOwner;
-    mapping(uint256 id => uint256 allTokensIndex) private assetIndex;
-
+    Bid private lastBid;
+    uint256 private initPrice;
+    address private assetOwner;
+    
     event PlaceAsset(
         address seller,
         uint256 tokenId,
@@ -76,9 +72,13 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
         _treasury = ITreasury(treasuryAddress);
         _blacklist = IBlacklist(blacklistAddress);
         _tokenId = tokenId;
+        assetOwner = msg.sender;
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _setupRole(ADMIN_ROLE, msg.sender);
+        grantRole(UNPAUSER_ROLE, treasuryAddress);
 
         __Pausable_init();
-        __Ownable_init();
+        __AccessControl_init();
     }
 
     //--------------------
@@ -95,18 +95,10 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
             !_blacklist.isInBlacklist(msg.sender),
             "Auction: blacklisted users can't sell"
         );
-        require(lastBid[_tokenId].time == 0, "Auction: token already placed");
+        require(lastBid.time == 0, "Auction: token already placed");
         _assets.lockToken(_tokenId);
-        lastBid[_tokenId] = Bid(
-            uint32(block.timestamp),
-            uint128(price),
-            msg.sender
-        );
-        initPrice[_tokenId] = price;
-        assetOwner[_tokenId] = msg.sender;
-        allTokens.push(_tokenId);
-        assetIndex[_tokenId] = allTokens.length - 1;
-        tokensAmount++;
+        lastBid = Bid(uint32(block.timestamp), uint128(price), msg.sender);
+        initPrice = price;
         emit PlaceAsset(msg.sender, _tokenId, price, block.timestamp);
     }
 
@@ -117,23 +109,16 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
             "Auction: you're not the owner"
         );
         require(
-            lastBid[_tokenId].time != 0,
+            lastBid.time != 0,
             "Auction: token is not for sale on the auction"
         );
-        if (allTokens.length < 2) {
-            allTokens.pop();
-        } else {
-            uint256 tokenIndex = assetIndex[_tokenId];
-            allTokens[tokenIndex] = allTokens[tokensAmount - 1];
-            allTokens.pop();
-        }
-
         _assets.unlockToken(_tokenId);
-        _deleteAssetData();
-        tokensAmount--;
-        emit CancelAsset(msg.sender, _tokenId, lastBid[_tokenId].price, block.timestamp);
+        stopAuction();
+        emit CancelAsset(msg.sender, _tokenId, lastBid.price, block.timestamp);
     }
 
+    //TODO: add bool flag from factory(may be add to treasury, when asset is sold)
+    //TODO add new asset owner after buy
     function acceptOffer() external whenNotPaused {
         require(!_isContract(msg.sender), "Auction: only EOA");
         require(
@@ -141,52 +126,55 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
             "Auction: you are not the owner of token"
         );
         require(
-            msg.sender != lastBid[_tokenId].user,
+            msg.sender != lastBid.user,
             "Auction: you tried to buy your token"
         );
         require(
             !_blacklist.isInBlacklist(msg.sender),
             "Auction: blacklisted user cannot sell"
         );
-        if (allTokens.length < 2) {
-            allTokens.pop();
-        } else {
-            uint256 tokenIndex = assetIndex[_tokenId];
-            allTokens[tokenIndex] = allTokens[tokensAmount - 1];
-            allTokens.pop();
-        }
-
-        tokensAmount--;
         _assets.unlockToken(_tokenId);
         _assets.transferFrom(msg.sender, address(_treasury), _tokenId);
         _treasury.addNewPandingTrade(
             msg.sender,
-            lastBid[_tokenId].user,
+            lastBid.user,
             _tokenId,
-            lastBid[_tokenId].time,
-            lastBid[_tokenId].price
+            lastBid.time,
+            lastBid.price
         );
-        _deleteAssetData();
+        //TODO: is don't paid -> unpause
+        stopAuction();
 
-        emit AcceptOffer(msg.sender, lastBid[_tokenId].user, _tokenId, lastBid[_tokenId].price, block.timestamp);
+        emit AcceptOffer(
+            msg.sender,
+            lastBid.user,
+            _tokenId,
+            lastBid.price,
+            block.timestamp
+        );
     }
 
     //--------------------
     // buyer functions
     //--------------------
 
+    //TODO: add bool flag from factory 
+    //TODO: add new assetOwner after buy
     function buyAsset() external payable whenNotPaused {
         require(!_isContract(msg.sender), "Auction: only EOA");
-        require(msg.value == lastBid[_tokenId].price, "Assets: not enougth ETH");
         require(
-            lastBid[_tokenId].price == initPrice[_tokenId],
+            msg.value == lastBid.price,
+            "Assets: not enougth ETH"
+        );
+        require(
+            lastBid.price == initPrice,
             "Auction: can only be purchased if no bids have been placed"
         );
         require(
-            lastBid[_tokenId].user != msg.sender,
+            lastBid.user != msg.sender,
             "Auction: you tried to buy your token"
         );
-        (bool sent, ) = assetOwner[_tokenId].call{
+        (bool sent, ) = assetOwner.call{
             value: msg.value - (msg.value / 100) * FEE
         }("Your token has been purchased");
         require(sent, "Auction: failed to send Ether");
@@ -196,17 +184,9 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
         );
 
         _assets.unlockToken(_tokenId);
-        _assets.transferFrom(assetOwner[_tokenId], msg.sender, _tokenId);
-        if (allTokens.length < 2) {
-            allTokens.pop();
-        } else {
-            uint256 index = assetIndex[_tokenId];
-            allTokens[index] = allTokens[tokensAmount - 1];
-            allTokens.pop();
-        }
-        _deleteAssetData();
-        tokensAmount--;
-        emit BuyAsset(msg.sender, _tokenId, lastBid[_tokenId].price, block.timestamp);
+        _assets.transferFrom(assetOwner, msg.sender, _tokenId);
+        stopAuction();
+        emit BuyAsset(msg.sender, _tokenId, lastBid.price, block.timestamp);
     }
 
     function placeBid(uint256 price) external whenNotPaused {
@@ -216,10 +196,7 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
             "Auction: blacklisted user cannot buy"
         );
         require(
-            price >=
-                lastBid[_tokenId].price +
-                    (lastBid[_tokenId].price / 100) *
-                    DISTINCTION,
+            price >= lastBid.price + (lastBid.price / 100) * DISTINCTION,
             "Auction: the next bet must be greater than than the previous one + 3%"
         );
         Bid memory newBid = Bid(
@@ -227,21 +204,17 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
             uint128(price),
             msg.sender
         );
-        lastBid[_tokenId] = newBid;
+        lastBid = newBid;
         emit PlaceBid(msg.sender, _tokenId, price, block.timestamp);
     }
 
     function getLastBid() external view returns (uint256, uint256, address) {
-        Bid memory tmp = lastBid[_tokenId];
+        Bid memory tmp = lastBid;
         return (tmp.time, tmp.price, tmp.user);
     }
 
-    function getAllAssetIds() external view returns (uint256[] memory) {
-        return allTokens;
-    }
-
     function getOwnerOfAsset() external view returns (address) {
-        return assetOwner[_tokenId];
+        return assetOwner;
     }
 
     //--------------------
@@ -256,32 +229,31 @@ contract Auction is Initializable, PausableUpgradeable, OwnableUpgradeable {
         return (size > 0);
     }
 
-    function _deleteAssetData() internal {
-        delete lastBid[_tokenId];
-        delete initPrice[_tokenId];
-        delete assetOwner[_tokenId];
-        delete assetIndex[_tokenId];
+    function stopAuction() internal {
+        assetOwner = lastBid.user;
+        delete lastBid;
+        delete initPrice;
+        pause();
     }
 
     //--------------------
     // admin functions
     //--------------------
 
-     function getAllEth() external onlyOwner {
+    function getAllEth() external onlyRole(ADMIN_ROLE) {
         (bool sent, ) = msg.sender.call{value: address(this).balance}(
             "ETH withdrowal"
         );
         require(sent, "Auction: failed to send Ether");
     }
 
-    function pause() public onlyOwner {
+    function pause() public onlyRole(ADMIN_ROLE) {
         _pause();
     }
 
-    function unpause() public onlyOwner {
+    function unpause() public onlyRole(UNPAUSER_ROLE){
         _unpause();
     }
 
     receive() external payable {}
-
 }
