@@ -1,14 +1,14 @@
 pragma solidity ^0.8.18;
 
-import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
+//import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 import "contracts/interfaces/IAssets.sol";
 import "contracts/interfaces/IBlacklist.sol";
 import "contracts/interfaces/ITreasury.sol";
 
-contract Auction is Initializable, PausableUpgradeable, AccessControlUpgradeable {
+contract Auction is Pausable, AccessControl {
     uint256 public constant FEE = 3;
     uint256 public constant DISTINCTION = 3;
     bytes32 private constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
@@ -64,13 +64,13 @@ contract Auction is Initializable, PausableUpgradeable, AccessControlUpgradeable
         uint256 time
     );
 
-    function initialize(
+    constructor (
         address assetsAddress,
         address treasuryAddress,
         address blacklistAddress,
         address factoryAddress,
         uint256 tokenId
-    ) public initializer {
+    ) {
         _assets = IAssets(assetsAddress);
         _treasury = ITreasury(treasuryAddress);
         _blacklist = IBlacklist(blacklistAddress);
@@ -80,9 +80,6 @@ contract Auction is Initializable, PausableUpgradeable, AccessControlUpgradeable
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(ADMIN_ROLE, msg.sender);
         grantRole(UNPAUSER_ROLE, treasuryAddress);
-
-        __Pausable_init();
-        __AccessControl_init();
     }
 
     //--------------------
