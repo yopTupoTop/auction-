@@ -4,6 +4,7 @@ const { ethers, upgrades } = require("hardhat");
 describe("Auction tests", () => {
     let Assets;
     let Auction;
+    let Factory;
 
     let assets;
     let auction;
@@ -37,11 +38,12 @@ describe("Auction tests", () => {
         treasury = await ethers.deployContract("Treasury", [assetsAddress]);
         treasuryAddress = await treasury.getAddress();
 
-        factory = await ethers.deployContract("AuctionFactory", [treasuryAddress, blacklistAddress, assetsAddress, 1]);
+        factory = await ethers.deployContract("AuctionFactory", [treasuryAddress, blacklistAddress, assetsAddress]);
         factoryAddress = await factory.getAddress();
 
-        auction = await factory.connect(address1).deployAuction();
-        console.log(await auction.wait());
+        auction = await factory.connect(address1).deployAuction(1);
+        let result = await auction.wait();
+        auctionAddress = result.events[1].args.auction;
         //await expect(factory.deployAuction()).to.emit(facory, "ContractCreated").withArgs(0x00);
         //let result = await auction.wait();
         //console.log(result);
