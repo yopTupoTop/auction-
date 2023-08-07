@@ -4,7 +4,6 @@ const { ethers, upgrades } = require("hardhat");
 describe("Auction tests", () => {
     let Assets;
     let Auction;
-    let Factory;
 
     let assets;
     let auction;
@@ -41,22 +40,16 @@ describe("Auction tests", () => {
         factory = await ethers.deployContract("AuctionFactory", [treasuryAddress, blacklistAddress, assetsAddress]);
         factoryAddress = await factory.getAddress();
 
-        auction = await factory.connect(address1).deployAuction(1);
-        let result = await auction.wait();
-        auctionAddress = result.events[1].args.auction;
-        //await expect(factory.deployAuction()).to.emit(facory, "ContractCreated").withArgs(0x00);
-        //let result = await auction.wait();
-        //console.log(result);
-        //const event = result.events.find(event => event.event === 'ContractCreated');
-        //[auctionAddress] = event.args;
-        //auctionAddress = result.events.args.auction;
+        auctionTx = await factory.connect(address1).deployAuction(1);
+        let result = await auctionTx.wait();
+        console.log(result.logs);
+        auctionAddress = result.logs[3].args[0]; //find in logs event log -> get args property 
 
-        //Auction = await ethers.getContractFactory("Auction");
-        //auction = await upgrades.deployProxy(Auction, [assetsAddress, treasuryAddress, blacklistAddress]);
-        //auctionAddress = await auction.getAddress();
+        Auction = await ethers.getContractFactory("Auction");
+        auction = Auction.attach(auctionAddress);
         
-        //await treasury.setAuctionAddress(auctionAddress);
-       // await assets.setAuctionAddress(auctionAddress);
+        await treasury.setAuctionAddress(auctionAddress);
+        await assets.setAuctionAddress(auctionAddress);
     });
 
     describe("sell token", async() => {

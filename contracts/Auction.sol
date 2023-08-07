@@ -31,7 +31,7 @@ contract Auction is Pausable, AccessControl {
     Bid private lastBid;
     uint256 private initPrice;
     address private assetOwner;
-    
+
     event PlaceAsset(
         address seller,
         uint256 tokenId,
@@ -64,7 +64,7 @@ contract Auction is Pausable, AccessControl {
         uint256 time
     );
 
-    constructor (
+    constructor(
         address assetsAddress,
         address treasuryAddress,
         address blacklistAddress,
@@ -101,8 +101,13 @@ contract Auction is Pausable, AccessControl {
         lastBid = Bid(uint32(block.timestamp), uint128(price), msg.sender);
         initPrice = price;
         (bool success, ) = _factory.delegatecall(
-            abi.encodeWithSignature("updateRelevance(address, bool)", address(this), true));
-            require(success, "Auction: update failed");
+            abi.encodeWithSignature(
+                "updateRelevance(address, bool)",
+                address(this),
+                true
+            )
+        );
+        require(success, "Auction: update failed");
         emit PlaceAsset(msg.sender, _tokenId, price, block.timestamp);
     }
 
@@ -161,14 +166,11 @@ contract Auction is Pausable, AccessControl {
     // buyer functions
     //--------------------
 
-    //TODO: add bool flag from factory 
+    //TODO: add bool flag from factory
     //TODO: add new assetOwner after buy
     function buyAsset() external payable whenNotPaused {
         require(!_isContract(msg.sender), "Auction: only EOA");
-        require(
-            msg.value == lastBid.price,
-            "Assets: not enougth ETH"
-        );
+        require(msg.value == lastBid.price, "Assets: not enougth ETH");
         require(
             lastBid.price == initPrice,
             "Auction: can only be purchased if no bids have been placed"
@@ -237,7 +239,12 @@ contract Auction is Pausable, AccessControl {
         delete lastBid;
         delete initPrice;
         (bool success, ) = _factory.delegatecall(
-            abi.encodeWithSignature("updateRelevance(address, bool)", address(this), false));
+            abi.encodeWithSignature(
+                "updateRelevance(address, bool)",
+                address(this),
+                false
+            )
+        );
         require(success, "Auction: update auction relevance");
         pause();
     }
@@ -257,7 +264,7 @@ contract Auction is Pausable, AccessControl {
         _pause();
     }
 
-    function unpause() public onlyRole(UNPAUSER_ROLE){
+    function unpause() public onlyRole(UNPAUSER_ROLE) {
         _unpause();
     }
 

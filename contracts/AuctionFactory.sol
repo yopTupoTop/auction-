@@ -4,8 +4,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "contracts/Auction.sol";
 import "contracts/interfaces/IAssets.sol";
 
-//import "hardhat/console.sol";
-
 contract AuctionFactory {
     address private _treasury;
     address private _blacklist;
@@ -27,13 +25,11 @@ contract AuctionFactory {
         _assets = assets;
     }
 
-    function deployAuction(uint256 tokenId) external returns (address) {
+    function deployAuction(uint256 tokenId) external {
         require(IAssets(_assets).ownerOf(tokenId) == msg.sender, "AuctionFactory: you're not the owner");
         Auction newAuction = new Auction(_assets, _treasury, _blacklist, address(this), tokenId);
-        //log(address(newAuction));
         auctionRelevance[address(newAuction)] = false;
         emit ContractCreated(address(newAuction), msg.sender);
-        return address(newAuction);
     }
 
     function updateRelevance(address auction, bool relevance) external {

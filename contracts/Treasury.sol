@@ -40,7 +40,9 @@ contract Treasury is ITreasury, Ownable {
         if (block.timestamp >= tradeInformation.time + DURATION) {
             if (msg.sender == tradeInformation.oldOwner) {
                 _assets.transferFrom(address(this), msg.sender, tokenId);
-                (bool success, ) = _auctionAddress.delegatecall(abi.encodeWithSignature("unpause()"));
+                (bool success, ) = _auctionAddress.delegatecall(
+                    abi.encodeWithSignature("unpause()")
+                );
                 require(success, "Treasury: unpause faild");
                 return;
             }
@@ -90,7 +92,10 @@ contract Treasury is ITreasury, Ownable {
         uint256 timestamp,
         uint256 price
     ) external {
-        require(msg.sender == _auctionAddress, "Treasury: only auction has access");
+        require(
+            msg.sender == _auctionAddress,
+            "Treasury: only auction has access"
+        );
         if (pendingTrades[tokenId].paid) {
             delete pendingTrades[tokenId];
         }
