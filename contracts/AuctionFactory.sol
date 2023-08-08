@@ -9,9 +9,7 @@ contract AuctionFactory {
     address private _blacklist;
     address private _assets;
 
-    //uint256 private _tokenId;
-
-    //mapping(address auction => bool relevance) public auctionRelevance;
+    mapping(uint256 tokenId => bool auctionExist) public auctionExistence;
 
     event ContractCreated(address auction, address owner);
 
@@ -26,14 +24,9 @@ contract AuctionFactory {
     }
 
     function deployAuction(uint256 tokenId) external {
+        require(auctionExistence[tokenId] == false, "AuctionFactory: auction already exists");
         require(IAssets(_assets).ownerOf(tokenId) == msg.sender, "AuctionFactory: you're not the owner");
         Auction newAuction = new Auction(_assets, _treasury, _blacklist, address(this), tokenId);
-        //auctionRelevance[address(newAuction)] = false;
         emit ContractCreated(address(newAuction), msg.sender);
     }
-
-    // function updateRelevance(address auction, bool relevance) external {
-    //     require(msg.sender == auction, "AuctionFactory: you can't change relevance");
-    //     auctionRelevance[auction] = relevance;
-    // }
 }
