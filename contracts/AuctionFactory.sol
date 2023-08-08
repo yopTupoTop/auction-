@@ -27,6 +27,7 @@ contract AuctionFactory {
         require(auctionExistence[tokenId] == false, "AuctionFactory: auction already exists");
         require(IAssets(_assets).ownerOf(tokenId) == msg.sender, "AuctionFactory: you're not the owner");
         Auction newAuction = new Auction(_assets, _treasury, _blacklist, address(this), tokenId);
+        auctionExistence[tokenId] = true;
         emit ContractCreated(address(newAuction), msg.sender);
     }
 }
