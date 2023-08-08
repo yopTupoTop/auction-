@@ -103,14 +103,6 @@ contract Auction is Pausable, AccessControl {
         _assets.lockToken(_tokenId);
         lastBid = Bid(uint32(block.timestamp), uint128(price), msg.sender);
         initPrice = price;
-        /*(bool success, ) = _factory.delegatecall(
-            abi.encodeWithSignature(
-                "updateRelevance(address, bool)",
-                address(this),
-                true
-            )
-        );
-        require(success, "Auction: update failed");*/
         emit PlaceAsset(msg.sender, _tokenId, price, block.timestamp);
     }
 

@@ -54,7 +54,26 @@ describe("Auction tests", () => {
 
     describe("sell token", async() => {
         it("successful placed token on auction", async() => {
+            let blockNumBefore = await ethers.provider.getBlockNumber();
+            let blockBefore = await ethers.provider.getBlock(blockNumBefore);
+            let timestampBefore = blockBefore.timestamp;
+            expect(await auction.connect(address1).sellAsset(ethers.getBigInt("10"))).to.emit(auction, "PlaceAsset").withArgs(address1.address, 1, ethers.getBigInt("10"), ethers.getBigInt(timestampBefore));
+            expect(await auction.getRelevance()).to.equal(true);
+            expect(await assets.isLocked(1)).to.equal(true);
+            let bid = await auction.getLastBid();
+            expect(bid[1]).to.equal(ethers.getBigInt("10"));
+            expect(bid[2]).to.equal(address1.address);
+        });
+        it("place asset by not owner", async() => {
+            await expect(auction.connect(address2).sellAsset(ethers.getBigInt("10"))).revertedWith("Auction: you're not the owner");
+        });
+        it("place asset by user from blacklist", async() => {
+            blacklist.addToBlacklist(address1.address);
+            await expect(auction.connect(address1).sellAsset(ethers.getBigInt("10"))).revertedWith("Auction: blacklisted users can't sell");
+        });
+        it("place already placed asset",async() => {
             await auction.connect(address1).sellAsset(ethers.getBigInt("10"));
+            await expect(auction.connect(address1).sellAsset(ethers.getBigInt("4"))).revertedWith("Auction: token already placed");
         });
     });
 
