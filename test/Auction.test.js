@@ -54,7 +54,7 @@ describe("Auction tests", () => {
 
     describe("sell token", async() => {
         it("successful placed token on auction", async() => {
-
+            await auction.connect(address1).sellAsset(ethers.getBigInt("10"));
         });
     });
 

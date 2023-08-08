@@ -22,6 +22,8 @@ contract Auction is Pausable, AccessControl {
 
     uint256 private _tokenId;
 
+    bool private _relevance;
+
     struct Bid {
         uint32 time;
         uint128 price;
@@ -76,10 +78,10 @@ contract Auction is Pausable, AccessControl {
         _blacklist = IBlacklist(blacklistAddress);
         _factory = factoryAddress;
         _tokenId = tokenId;
-        assetOwner = msg.sender;
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _setupRole(ADMIN_ROLE, msg.sender);
-        grantRole(UNPAUSER_ROLE, treasuryAddress);
+        assetOwner = tx.origin;
+        _setupRole(DEFAULT_ADMIN_ROLE, tx.origin);
+        _setupRole(ADMIN_ROLE, tx.origin);
+        _setupRole(UNPAUSER_ROLE, tx.origin);
     }
 
     //--------------------
@@ -97,17 +99,18 @@ contract Auction is Pausable, AccessControl {
             "Auction: blacklisted users can't sell"
         );
         require(lastBid.time == 0, "Auction: token already placed");
+        _setRelevance(true);
         _assets.lockToken(_tokenId);
         lastBid = Bid(uint32(block.timestamp), uint128(price), msg.sender);
         initPrice = price;
-        (bool success, ) = _factory.delegatecall(
+        /*(bool success, ) = _factory.delegatecall(
             abi.encodeWithSignature(
                 "updateRelevance(address, bool)",
                 address(this),
                 true
             )
         );
-        require(success, "Auction: update failed");
+        require(success, "Auction: update failed");*/
         emit PlaceAsset(msg.sender, _tokenId, price, block.timestamp);
     }
 
@@ -122,7 +125,7 @@ contract Auction is Pausable, AccessControl {
             "Auction: token is not for sale on the auction"
         );
         _assets.unlockToken(_tokenId);
-        stopAuction();
+        _stopAuction();
         emit CancelAsset(msg.sender, _tokenId, lastBid.price, block.timestamp);
     }
 
@@ -151,7 +154,7 @@ contract Auction is Pausable, AccessControl {
             lastBid.time,
             lastBid.price
         );
-        stopAuction();
+        _stopAuction();
 
         emit AcceptOffer(
             msg.sender,
@@ -160,6 +163,11 @@ contract Auction is Pausable, AccessControl {
             lastBid.price,
             block.timestamp
         );
+    }
+
+    function updateRelevance() external onlyRole(ADMIN_ROLE) {
+        _setRelevance(true);
+        unpause();
     }
 
     //--------------------
@@ -190,7 +198,7 @@ contract Auction is Pausable, AccessControl {
 
         _assets.unlockToken(_tokenId);
         _assets.transferFrom(assetOwner, msg.sender, _tokenId);
-        stopAuction();
+        _stopAuction();
         emit BuyAsset(msg.sender, _tokenId, lastBid.price, block.timestamp);
     }
 
@@ -222,6 +230,10 @@ contract Auction is Pausable, AccessControl {
         return assetOwner;
     }
 
+    function getRelevance() external view returns (bool) {
+        return _relevance;
+    }
+
     //--------------------
     // internal functions
     //--------------------
@@ -234,19 +246,16 @@ contract Auction is Pausable, AccessControl {
         return (size > 0);
     }
 
-    function stopAuction() internal {
+    function _stopAuction() internal {
         assetOwner = lastBid.user;
         delete lastBid;
         delete initPrice;
-        (bool success, ) = _factory.delegatecall(
-            abi.encodeWithSignature(
-                "updateRelevance(address, bool)",
-                address(this),
-                false
-            )
-        );
-        require(success, "Auction: update auction relevance");
+        _setRelevance(false);
         pause();
+    }
+
+    function _setRelevance(bool relevance) internal {
+        _relevance = relevance;
     }
 
     //--------------------
