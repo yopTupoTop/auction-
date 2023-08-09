@@ -15,6 +15,8 @@ interface IAuction {
 
     function getOwnerOfAsset() external returns (address);
 
+    function updateOwner() external;
+
     function pause() external;
 
     function unpause() external;

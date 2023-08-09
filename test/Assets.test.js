@@ -18,12 +18,10 @@ describe("Assets tests", () => {
     let merkleTree;
 
     beforeEach(async () => {
-        //Blacklist = await ethers.getContractFactory("Blacklist");
         blacklist = await ethers.deployContract("Blacklist");
         let blacklistAddress = await blacklist.getAddress();
 
         Assets = await ethers.getContractFactory("Assets");
-        //assets = await Assets.deploy(Assets, ["Assets", "ASSETS", BASE_URI, BASE_PRICE, ADDITIONAL_PRICE, blacklist.address]);
         assets = await upgrades.deployProxy(Assets, ["Assets", "ASSETS", BASE_URI, BASE_PRICE, ADDITIONAL_PRICE, blacklistAddress]);
 
         [owner, address1, address2, address3, address4, address5, address6, address7] = await ethers.getSigners();

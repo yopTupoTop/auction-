@@ -2,7 +2,6 @@ pragma solidity ^0.8.18;
 
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
-//import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 import "contracts/interfaces/IAuction.sol";
 import "contracts/interfaces/IAssets.sol";
@@ -101,7 +100,7 @@ contract Auction is Pausable, AccessControl {
         );
         require(lastBid.time == 0, "Auction: token already placed");
         _setRelevance(true);
-        _assets.lockToken(_tokenId);
+        _assets.lockToken(_tokenId, address(this));
         lastBid = Bid(uint32(block.timestamp), uint128(price), msg.sender);
         initPrice = price;
         emit PlaceAsset(msg.sender, _tokenId, price, block.timestamp);
@@ -117,13 +116,11 @@ contract Auction is Pausable, AccessControl {
             lastBid.time != 0,
             "Auction: token is not for sale on the auction"
         );
-        _assets.unlockToken(_tokenId);
+        _assets.unlockToken(_tokenId, address(this));
         _stopAuction();
         emit CancelAsset(msg.sender, _tokenId, lastBid.price, block.timestamp);
     }
 
-    //TODO: add bool flag from factory(may be add to treasury, when asset is sold)
-    //TODO add new asset owner after buy
     function acceptOffer() external whenNotPaused {
         require(!_isContract(msg.sender), "Auction: only EOA");
         require(
@@ -138,7 +135,7 @@ contract Auction is Pausable, AccessControl {
             !_blacklist.isInBlacklist(msg.sender),
             "Auction: blacklisted user cannot sell"
         );
-        _assets.unlockToken(_tokenId);
+        _assets.unlockToken(_tokenId, address(this));
         _assets.transferFrom(msg.sender, address(_treasury), _tokenId);
         _treasury.addNewPandingTrade(
             msg.sender,
@@ -149,7 +146,7 @@ contract Auction is Pausable, AccessControl {
             address(this)
         );
         _stopAuction();
-
+        
         emit AcceptOffer(
             msg.sender,
             lastBid.user,
@@ -188,9 +185,10 @@ contract Auction is Pausable, AccessControl {
             "Auction: blacklisted user cannot buy"
         );
 
-        _assets.unlockToken(_tokenId);
+        _assets.unlockToken(_tokenId, address(this));
         _assets.transferFrom(assetOwner, msg.sender, _tokenId);
         _stopAuction();
+        assetOwner = lastBid.user;
         emit BuyAsset(msg.sender, _tokenId, lastBid.price, block.timestamp);
     }
 
@@ -239,7 +237,6 @@ contract Auction is Pausable, AccessControl {
     }
 
     function _stopAuction() internal {
-        assetOwner = lastBid.user;
         delete lastBid;
         delete initPrice;
         _setRelevance(false);
@@ -259,6 +256,10 @@ contract Auction is Pausable, AccessControl {
             "ETH withdrowal"
         );
         require(sent, "Auction: failed to send Ether");
+    }
+
+    function updateOwner() external onlyRole(UNPAUSER_ROLE) {
+        assetOwner = lastBid.user;
     }
 
     function pause() public onlyRole(ADMIN_ROLE) {

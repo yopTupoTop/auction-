@@ -65,6 +65,7 @@ contract Treasury is ITreasury, Ownable {
 
         if (msg.sender == tradeInformation.newOwner) {
             _assets.transferFrom(address(this), msg.sender, tokenId);
+            _auction.updateOwner();
         }
     }
 

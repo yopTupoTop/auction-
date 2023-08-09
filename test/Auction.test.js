@@ -51,8 +51,6 @@ describe("Auction tests", () => {
 
         Auction = await ethers.getContractFactory("Auction");
         auction = Auction.attach(auctionAddress);
-        
-        await assets.setAuctionAddress(auctionAddress);
     });
 
     describe("seller functions test", async() => { 
@@ -103,6 +101,34 @@ describe("Auction tests", () => {
             });
             it("cancel not placed asset", async() => {
                 await expect(auction.connect(address1).cancelAsset()).revertedWith("Auction: token is not for sale on the auction");
+            });
+        });
+
+        describe("accept offer", async() => {
+            it("successful accept", async() => {
+                await auction.connect(address1).sellAsset(ethers.getBigInt("10"));
+                await auction.connect(address2).placeBid(ethers.getBigInt("11"));
+                let bid = await auction.getLastBid();
+                let blockNumBefore = await ethers.provider.getBlockNumber();
+                let blockBefore = await ethers.provider.getBlock(blockNumBefore);
+                let timestampBefore = blockBefore.timestamp;
+
+                await assets.connect(address1).approve(auctionAddress, 1);
+                expect(await auction.connect(address1).acceptOffer()).to.emit(auction, "AcceptOffer").withArgs(address1.address, bid[2], bid[1], 1, timestampBefore);
+                expect(await assets.isLocked(1)).to.equal(false);
+                expect(await auction.getOwnerOfAsset()).to.equal(address1.address);
+                expect(await assets.ownerOf(1)).to.equal(treasuryAddress);
+            });
+            it("accept offer by not owner", async() => {
+                await auction.connect(address1).sellAsset(ethers.getBigInt("10"));
+                await auction.connect(address2).placeBid(ethers.getBigInt("11"));
+                await expect(auction.connect(address2).acceptOffer()).revertedWith("Auction: you are not the owner of token");
+            });
+            it("accept offer from owner", async() => {
+                await auction.connect(address1).sellAsset(ethers.getBigInt("10"));
+                await expect(auction.connect(address1).acceptOffer()).revertedWith("Auction: you tried to buy your token");
+                await auction.connect(address1).placeBid(ethers.getBigInt("11"));
+                await expect(auction.connect(address1).acceptOffer()).revertedWith("Auction: you tried to buy your token");
             });
         });
     });
