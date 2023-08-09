@@ -52,7 +52,6 @@ describe("Auction tests", () => {
         Auction = await ethers.getContractFactory("Auction");
         auction = Auction.attach(auctionAddress);
         
-        await treasury.setAuctionAddress(auctionAddress);
         await assets.setAuctionAddress(auctionAddress);
     });
 

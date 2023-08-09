@@ -32,7 +32,10 @@ contract Treasury is ITreasury, Ownable {
 
     function checkTrade(uint256 tokenId, address auctionAddress) external {
         _auction = IAuction(auctionAddress);
-        require(_auction.getOwnerOfAsset() == _assets.ownerOf(tokenId), "Treasury: auction owner is not asset owner");
+        require(
+            _auction.getOwnerOfAsset() == _assets.ownerOf(tokenId),
+            "Treasury: auction owner is not asset owner"
+        );
         PendingTrade memory tradeInformation = pendingTrades[tokenId];
         require(
             tradeInformation.oldOwner != address(0) ||
@@ -89,7 +92,7 @@ contract Treasury is ITreasury, Ownable {
         address recipient,
         uint256 tokenId,
         uint256 timestamp,
-        uint256 price, 
+        uint256 price,
         address auctionAddress
     ) external {
         require(

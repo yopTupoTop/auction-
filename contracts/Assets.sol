@@ -11,6 +11,7 @@ import "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgrad
 
 import "contracts/interfaces/IAssets.sol";
 import "contracts/interfaces/IBlacklist.sol";
+import "contracts/interfaces/IAuction.sol";
 
 contract Assets is
     Initializable,
@@ -38,7 +39,6 @@ contract Assets is
     uint256 _basePrice;
     uint256 _additionalPrice;
     bytes32 private _merkleRoot;
-    address private _auction;
 
     function initialize(
         string memory name,
@@ -105,22 +105,28 @@ contract Assets is
         return string(ownedAssets[user][tokenId].content);
     }
 
-    function lockToken(uint256 tokenId) external {
-        require(msg.sender == _auction, "Assets: sender is not auction");
+    function lockToken(uint256 tokenId, address auctionAddress) external {
+        require(
+            (msg.sender == auctionAddress) &&
+                (IAuction(auctionAddress).getOwnerOfAsset() ==
+                    ownerOf(tokenId)),
+            "Assets: sender is not auction"
+        );
         tokenLocked[tokenId] = true;
     }
 
-    function unlockToken(uint256 tokenId) external {
-        require(msg.sender == _auction, "Assets: sender is not auction");
+    function unlockToken(uint256 tokenId, address auctionAddress) external {
+        require(
+            (msg.sender == auctionAddress) &&
+                (IAuction(auctionAddress).getOwnerOfAsset() ==
+                    ownerOf(tokenId)),
+            "Assets: sender is not auction"
+        );
         tokenLocked[tokenId] = false;
     }
 
     function isLocked(uint256 tokenId) external view returns (bool) {
         return tokenLocked[tokenId];
-    }
-
-    function setAuctionAddress(address auctionAddress) external onlyOwner {
-        _auction = auctionAddress;
     }
 
     function setMerkleRoot(bytes32 newRoot) external onlyOwner {
