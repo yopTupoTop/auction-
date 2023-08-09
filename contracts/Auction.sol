@@ -4,6 +4,7 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 //import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
+import "contracts/interfaces/IAuction.sol";
 import "contracts/interfaces/IAssets.sol";
 import "contracts/interfaces/IBlacklist.sol";
 import "contracts/interfaces/ITreasury.sol";
@@ -144,7 +145,8 @@ contract Auction is Pausable, AccessControl {
             lastBid.user,
             _tokenId,
             lastBid.time,
-            lastBid.price
+            lastBid.price,
+            address(this)
         );
         _stopAuction();
 
@@ -166,8 +168,6 @@ contract Auction is Pausable, AccessControl {
     // buyer functions
     //--------------------
 
-    //TODO: add bool flag from factory
-    //TODO: add new assetOwner after buy
     function buyAsset() external payable whenNotPaused {
         require(!_isContract(msg.sender), "Auction: only EOA");
         require(msg.value == lastBid.price, "Assets: not enougth ETH");
@@ -254,8 +254,8 @@ contract Auction is Pausable, AccessControl {
     // admin functions
     //--------------------
 
-    function getAllEth() external onlyRole(ADMIN_ROLE) {
-        (bool sent, ) = msg.sender.call{value: address(this).balance}(
+    function getAllEth() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        (bool sent, ) = _assets.ownerOf(1).call{value: address(this).balance}(
             "ETH withdrowal"
         );
         require(sent, "Auction: failed to send Ether");

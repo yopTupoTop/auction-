@@ -4,14 +4,14 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "contracts/interfaces/ITreasury.sol";
 import "contracts/interfaces/IAssets.sol";
+import "contracts/interfaces/IAuction.sol";
 
 contract Treasury is ITreasury, Ownable {
     uint256 public constant FEE = 2;
     uint256 public constant DURATION = 1 hours;
 
     IAssets private _assets;
-
-    address private _auctionAddress;
+    IAuction private _auction;
 
     mapping(uint256 tokenId => PendingTrade tradeDetails) private pendingTrades;
     mapping(uint256 tokenId => uint256 allTIPIndex) private tokenIndexes;
@@ -30,7 +30,9 @@ contract Treasury is ITreasury, Ownable {
         _assets = IAssets(assetsAddress);
     }
 
-    function checkTrade(uint256 tokenId) external {
+    function checkTrade(uint256 tokenId, address auctionAddress) external {
+        _auction = IAuction(auctionAddress);
+        require(_auction.getOwnerOfAsset() == _assets.ownerOf(tokenId), "Treasury: auction owner is not asset owner");
         PendingTrade memory tradeInformation = pendingTrades[tokenId];
         require(
             tradeInformation.oldOwner != address(0) ||
@@ -40,10 +42,7 @@ contract Treasury is ITreasury, Ownable {
         if (block.timestamp >= tradeInformation.time + DURATION) {
             if (msg.sender == tradeInformation.oldOwner) {
                 _assets.transferFrom(address(this), msg.sender, tokenId);
-                (bool success, ) = _auctionAddress.delegatecall(
-                    abi.encodeWithSignature("unpause()")
-                );
-                require(success, "Treasury: unpause faild");
+                _auction.unpause();
                 return;
             }
 
@@ -90,10 +89,11 @@ contract Treasury is ITreasury, Ownable {
         address recipient,
         uint256 tokenId,
         uint256 timestamp,
-        uint256 price
+        uint256 price, 
+        address auctionAddress
     ) external {
         require(
-            msg.sender == _auctionAddress,
+            msg.sender == auctionAddress,
             "Treasury: only auction has access"
         );
         if (pendingTrades[tokenId].paid) {
@@ -109,9 +109,5 @@ contract Treasury is ITreasury, Ownable {
         );
         allTokensInPending.push(tokenId);
         tokenIndexes[tokenId] = allTokensInPending.length - 1;
-    }
-
-    function setAuctionAddress(address auctionAddress) external onlyOwner {
-        _auctionAddress = auctionAddress;
     }
 }

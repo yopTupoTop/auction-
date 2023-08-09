@@ -56,53 +56,55 @@ describe("Auction tests", () => {
         await assets.setAuctionAddress(auctionAddress);
     });
 
-    describe("sell token", async() => {
-        it("successful placed token on auction", async() => {
-            let blockNumBefore = await ethers.provider.getBlockNumber();
-            let blockBefore = await ethers.provider.getBlock(blockNumBefore);
-            let timestampBefore = blockBefore.timestamp;
-            expect(await auction.connect(address1).sellAsset(ethers.getBigInt("10"))).to.emit(auction, "PlaceAsset").withArgs(address1.address, 1, ethers.getBigInt("10"), ethers.getBigInt(timestampBefore));
-            expect(await auction.getRelevance()).to.equal(true);
-            expect(await assets.isLocked(1)).to.equal(true);
-            let bid = await auction.getLastBid();
-            expect(bid[1]).to.equal(ethers.getBigInt("10"));
-            expect(bid[2]).to.equal(address1.address);
+    describe("seller functions test", async() => { 
+        describe("sell token", async() => {
+            it("successful placed token on auction", async() => {
+                let blockNumBefore = await ethers.provider.getBlockNumber();
+                let blockBefore = await ethers.provider.getBlock(blockNumBefore);
+                let timestampBefore = blockBefore.timestamp;
+                expect(await auction.connect(address1).sellAsset(ethers.getBigInt("10"))).to.emit(auction, "PlaceAsset").withArgs(address1.address, 1, ethers.getBigInt("10"), ethers.getBigInt(timestampBefore));
+                expect(await auction.getRelevance()).to.equal(true);
+                expect(await assets.isLocked(1)).to.equal(true);
+                let bid = await auction.getLastBid();
+                expect(bid[1]).to.equal(ethers.getBigInt("10"));
+                expect(bid[2]).to.equal(address1.address);
         });
-        it("place asset by not owner", async() => {
-            await expect(auction.connect(address2).sellAsset(ethers.getBigInt("10"))).revertedWith("Auction: you're not the owner");
+            it("place asset by not owner", async() => {
+                await expect(auction.connect(address2).sellAsset(ethers.getBigInt("10"))).revertedWith("Auction: you're not the owner");
+            });
+            it("place asset by user from blacklist", async() => {
+                blacklist.addToBlacklist(address1.address);
+                await expect(auction.connect(address1).sellAsset(ethers.getBigInt("10"))).revertedWith("Auction: blacklisted users can't sell");
+            });
+            it("place already placed asset",async() => {
+                await auction.connect(address1).sellAsset(ethers.getBigInt("10"));
+                await expect(auction.connect(address1).sellAsset(ethers.getBigInt("4"))).revertedWith("Auction: token already placed");
+            });
         });
-        it("place asset by user from blacklist", async() => {
-            blacklist.addToBlacklist(address1.address);
-            await expect(auction.connect(address1).sellAsset(ethers.getBigInt("10"))).revertedWith("Auction: blacklisted users can't sell");
-        });
-        it("place already placed asset",async() => {
-            await auction.connect(address1).sellAsset(ethers.getBigInt("10"));
-            await expect(auction.connect(address1).sellAsset(ethers.getBigInt("4"))).revertedWith("Auction: token already placed");
-        });
-    });
 
-    describe("cancel token", async() => {
-        it("successfull cencel token auction", async() => {
-            await auction.connect(address1).sellAsset(ethers.getBigInt("10"));
-            let bid = await auction.getLastBid();
-            let blockNumBefore = await ethers.provider.getBlockNumber();
-            let blockBefore = await ethers.provider.getBlock(blockNumBefore);
-            let timestampBefore = blockBefore.timestamp;
-            expect(await auction.connect(address1).cancelAsset()).to.emit(auction, "CancelAsset").withArgs(address1.address, 1, bid[1], timestampBefore);
-            expect(await auction.getRelevance()).to.equal(false);
-            expect(await assets.isLocked(1)).to.equal(false);
-            expect(await auction.getOwnerOfAsset()).to.equal(bid[2]);
-            bid = await auction.getLastBid();
-            expect(bid[0]).to.equal(0);
-            expect(bid[1]).to.equal(0);
-            expect(bid[2]).to.equal(constants.ZERO_ADDRESS);
-        });
-        it("cancel asset by not owner", async() => {
-            await auction.connect(address1).sellAsset(ethers.getBigInt("10"));
-            await expect(auction.connect(address2).cancelAsset()).revertedWith("Auction: you're not the owner")
-        });
-        it("cancel not placed asset", async() => {
-            await expect(auction.connect(address1).cancelAsset()).revertedWith("Auction: token is not for sale on the auction");
+        describe("cancel token", async() => {
+            it("successfull cencel token auction", async() => {
+                await auction.connect(address1).sellAsset(ethers.getBigInt("10"));
+                let bid = await auction.getLastBid();
+                let blockNumBefore = await ethers.provider.getBlockNumber();
+                let blockBefore = await ethers.provider.getBlock(blockNumBefore);
+                let timestampBefore = blockBefore.timestamp;
+                expect(await auction.connect(address1).cancelAsset()).to.emit(auction, "CancelAsset").withArgs(address1.address, 1, bid[1], timestampBefore);
+                expect(await auction.getRelevance()).to.equal(false);
+                expect(await assets.isLocked(1)).to.equal(false);
+                expect(await auction.getOwnerOfAsset()).to.equal(bid[2]);
+                bid = await auction.getLastBid();
+                expect(bid[0]).to.equal(0);
+                expect(bid[1]).to.equal(0);
+                expect(bid[2]).to.equal(constants.ZERO_ADDRESS);
+            });
+            it("cancel asset by not owner", async() => {
+                await auction.connect(address1).sellAsset(ethers.getBigInt("10"));
+                await expect(auction.connect(address2).cancelAsset()).revertedWith("Auction: you're not the owner")
+            });
+            it("cancel not placed asset", async() => {
+                await expect(auction.connect(address1).cancelAsset()).revertedWith("Auction: token is not for sale on the auction");
+            });
         });
     });
 })
