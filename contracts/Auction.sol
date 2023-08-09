@@ -11,8 +11,8 @@ import "contracts/interfaces/ITreasury.sol";
 contract Auction is Pausable, AccessControl {
     uint256 public constant FEE = 3;
     uint256 public constant DISTINCTION = 3;
-    bytes32 private constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-    bytes32 private constant UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    bytes32 public constant UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
 
     IAssets private _assets;
     ITreasury private _treasury;
@@ -146,7 +146,7 @@ contract Auction is Pausable, AccessControl {
             address(this)
         );
         _stopAuction();
-        
+
         emit AcceptOffer(
             msg.sender,
             lastBid.user,

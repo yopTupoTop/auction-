@@ -4,6 +4,8 @@ const {
     constants,
     expectRevert,
 } = require('@openzeppelin/test-helpers');
+const keccak256 = require("keccak256");
+
 
 describe("Auction tests", () => {
     let Assets;
@@ -129,6 +131,38 @@ describe("Auction tests", () => {
                 await expect(auction.connect(address1).acceptOffer()).revertedWith("Auction: you tried to buy your token");
                 await auction.connect(address1).placeBid(ethers.getBigInt("11"));
                 await expect(auction.connect(address1).acceptOffer()).revertedWith("Auction: you tried to buy your token");
+            });
+        });
+
+        describe("update relevance", async() => {
+            it("successful update", async() => {
+               ; await auction.connect(address1).sellAsset(ethers.getBigInt("10"));
+                expect(await auction.paused()).to.equal(false);
+                await auction.connect(address1).cancelAsset();
+                expect(await auction.paused()).to.equal(true);
+                expect(await auction.getRelevance()).to.equal(false);
+
+                await auction.connect(address1).updateRelevance();
+                expect(await auction.paused()).to.equal(false);
+                expect(await auction.getRelevance()).to.equal(true);
+            });
+            it("update by not admin", async() => {
+                await auction.connect(address1).sellAsset(ethers.getBigInt("10"));
+                expect(await auction.paused()).to.equal(false);
+                await auction.connect(address1).cancelAsset();
+                expect(await auction.paused()).to.equal(true);
+                expect(await auction.getRelevance()).to.equal(false);
+
+                let role = await auction.ADMIN_ROLE();
+                let unpauseRole = await auction.UNPAUSER_ROLE();
+                await expect(auction.connect(address2).updateRelevance()).revertedWith(`AccessControl: account 0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc is missing role ${role}`);
+
+                await auction.connect(address1).grantRole(role, address2.address);
+                await expect(auction.connect(address2).updateRelevance()).revertedWith(`AccessControl: account 0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc is missing role ${unpauseRole}`);
+                await auction.connect(address1).grantRole(unpauseRole, address2.address);
+                await auction.connect(address2).updateRelevance();
+                expect(await auction.paused()).to.equal(false);
+                expect(await auction.getRelevance()).to.equal(true);
             });
         });
     });
