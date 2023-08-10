@@ -207,5 +207,33 @@ describe("Auction tests", () => {
                 await expect(auction.connect(address2).buyAsset({value: ethers.getBigInt("10")})).revertedWith("Auction: blacklisted user cannot buy");
             });
         });
+
+        describe("place bid", async() => {
+            it("successful place", async() => {
+                await auction.connect(address1).sellAsset(ethers.getBigInt("10"));
+                let blockNumBefore = await ethers.provider.getBlockNumber();
+                let blockBefore = await ethers.provider.getBlock(blockNumBefore);
+                let timestampBefore = blockBefore.timestamp;
+                expect(await auction.connect(address2).placeBid(ethers.getBigInt("11"))).to.emit(auction, "PlaceBid").withArgs(address2.address, 1, ethers.getBigInt("11"), timestampBefore);
+                let bid = await auction.getLastBid();
+                expect(bid[1]).to.equal(ethers.getBigInt("11"));
+                expect(bid[2]).to.equal(address2.address);
+            });
+            it("place bit by user from blacklist", async() => {
+                blacklist.addToBlacklist(address2.address);
+                await auction.connect(address1).sellAsset(ethers.getBigInt("10"));
+                await expect(auction.connect(address2).placeBid(ethers.getBigInt("11"))).revertedWith("Auction: blacklisted user cannot buy");
+            });
+            it("place bid with not enougth price", async() => {
+                await auction.connect(address1).sellAsset(ethers.getBigInt("10"));
+                await auction.connect(address3).placeBid(ethers.getBigInt("100"));
+                await expect(auction.connect(address2).placeBid(ethers.getBigInt("101"))).revertedWith("Auction: the next bet must be greater than than the previous one + 3%");
+                
+                await auction.connect(address2).placeBid(ethers.getBigInt("103"));
+                let bid = await auction.getLastBid();
+                expect(bid[1]).to.equal(ethers.getBigInt("103"));
+                expect(bid[2]).to.equal(address2.address);
+            });
+        });
     });
 })
