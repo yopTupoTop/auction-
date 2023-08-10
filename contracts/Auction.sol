@@ -167,7 +167,7 @@ contract Auction is Pausable, AccessControl {
 
     function buyAsset() external payable whenNotPaused {
         require(!_isContract(msg.sender), "Auction: only EOA");
-        require(msg.value == lastBid.price, "Assets: not enougth ETH");
+        require(msg.value == lastBid.price, "Auction: not enougth ETH");
         require(
             lastBid.price == initPrice,
             "Auction: can only be purchased if no bids have been placed"
@@ -187,8 +187,8 @@ contract Auction is Pausable, AccessControl {
 
         _assets.unlockToken(_tokenId, address(this));
         _assets.transferFrom(assetOwner, msg.sender, _tokenId);
+        assetOwner = msg.sender;
         _stopAuction();
-        assetOwner = lastBid.user;
         emit BuyAsset(msg.sender, _tokenId, lastBid.price, block.timestamp);
     }
 

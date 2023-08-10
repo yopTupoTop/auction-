@@ -166,4 +166,46 @@ describe("Auction tests", () => {
             });
         });
     });
+
+    describe("buyer functions test", async() => {
+        describe("buy asset", async() => {
+            it("successful buy", async() => {
+                await auction.connect(address1).sellAsset(ethers.getBigInt("10"));
+                let bid = await auction.getLastBid();
+                let blockNumBefore = await ethers.provider.getBlockNumber();
+                let blockBefore = await ethers.provider.getBlock(blockNumBefore);
+                let timestampBefore = blockBefore.timestamp;
+
+                await assets.connect(address1).approve(auctionAddress, 1);
+
+                let role = await auction.ADMIN_ROLE();
+                let unpauseRole = await auction.UNPAUSER_ROLE();
+                await auction.connect(address1).grantRole(role, address2.address);
+                await auction.connect(address1).grantRole(unpauseRole, address2.address);
+
+                expect(await auction.connect(address2).buyAsset({value: ethers.getBigInt("10")})).to.emit(auction, "BuyAsset").withArgs(address2.address, 1, bid[1], timestampBefore);
+                expect(await auction.getRelevance()).to.equal(false);
+                expect(await assets.isLocked(1)).to.equal(false);
+                expect(await auction.getOwnerOfAsset()).to.equal(address2.address);
+            });
+            it("buy asset without enougth ETH", async() => {
+                await auction.connect(address1).sellAsset(ethers.getBigInt("10"));
+                await expect(auction.connect(address2).buyAsset({value: ethers.getBigInt("1")})).revertedWith("Auction: not enougth ETH");
+            });
+            it("buy asset with already placed bid", async() => {
+                await auction.connect(address1).sellAsset(ethers.getBigInt("10"));
+                await auction.connect(address3).placeBid(ethers.getBigInt("11"));
+                await expect(auction.connect(address2).buyAsset({value: ethers.getBigInt("11")})).revertedWith("Auction: can only be purchased if no bids have been placed");
+            });
+            it("buy asset by owner", async() => {
+                await auction.connect(address1).sellAsset(ethers.getBigInt("10"));
+                await expect(auction.connect(address1).buyAsset({value: ethers.getBigInt("10")})).revertedWith("Auction: you tried to buy your token");
+            });
+            it("buy asset by user from blacklist", async() => {
+                blacklist.addToBlacklist(address2.address);
+                await auction.connect(address1).sellAsset(ethers.getBigInt("10"));
+                await expect(auction.connect(address2).buyAsset({value: ethers.getBigInt("10")})).revertedWith("Auction: blacklisted user cannot buy");
+            });
+        });
+    });
 })
