@@ -140,7 +140,6 @@ contract Auction is Pausable, AccessControl {
         _treasury.addNewPandingTrade(
             msg.sender,
             lastBid.user,
-            _tokenId,
             lastBid.time,
             lastBid.price,
             address(this)
@@ -222,6 +221,10 @@ contract Auction is Pausable, AccessControl {
 
     function getRelevance() external view returns (bool) {
         return _relevance;
+    }
+
+    function getTokenId() external view returns (uint256) {
+        return _tokenId;
     }
 
     //--------------------

@@ -14,6 +14,8 @@ interface IAuction {
     function getLastBid() external returns (uint256, uint256, address);
 
     function getOwnerOfAsset() external returns (address);
+    
+    function getTokenId() external returns (uint256);
 
     function updateOwner() external;
 
