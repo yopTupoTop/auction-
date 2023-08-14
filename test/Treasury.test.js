@@ -96,4 +96,37 @@ describe("Treasuty tests", () => {
             await expect(treasury.connect(address2).checkTrade(auctionAddress)).revertedWith( "Treasury: not paid yet");
         });
     });
+
+    describe("pay", async() => {
+        it("successful pay", async() => {
+            await assets.connect(address1).approve(auctionAddress, 1);
+            await auction.connect(address2).placeBid(ethers.getBigInt("11"));
+            await auction.connect(address1).acceptOffer();
+            await treasury.connect(address2).pay(1, {value: ethers.getBigInt("11")});
+
+            expect(await treasury.getNewOwner(1)).to.equal(address2.address);
+            expect(await treasury.getPendingTradePaid(1)).to.equal(true);
+        });
+        it("pay to non-existant trade", async() => {
+            await assets.connect(address1).approve(auctionAddress, 1);
+            await auction.connect(address2).placeBid(ethers.getBigInt("11"));
+
+            await expect(treasury.connect(address2).pay(1, {value: ethers.getBigInt("11")})).revertedWith("Treasury: this trade doesn't exist");
+        });
+        it("pay to already paid trade", async() => {
+            await assets.connect(address1).approve(auctionAddress, 1);
+            await auction.connect(address2).placeBid(ethers.getBigInt("11"));
+            await auction.connect(address1).acceptOffer();
+            await treasury.connect(address2).pay(1, {value: ethers.getBigInt("11")});
+
+            await expect(treasury.connect(address2).pay(1, {value: ethers.getBigInt("11")})).revertedWith( "Treasury: trade already paid");
+        });
+        it("pay with insufficient ETH amount", async() => {
+            await assets.connect(address1).approve(auctionAddress, 1);
+            await auction.connect(address2).placeBid(ethers.getBigInt("11"));
+            await auction.connect(address1).acceptOffer();
+
+            await expect(treasury.connect(address2).pay(1, {value: ethers.getBigInt("10")})).revertedWith("Treasury: not enougth ETH");
+        });
+    });
 });

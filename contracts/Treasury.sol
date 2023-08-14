@@ -114,4 +114,12 @@ contract Treasury is ITreasury, Ownable {
         allTokensInPending.push(tokenId);
         tokenIndexes[tokenId] = allTokensInPending.length - 1;
     }
+
+    function getNewOwner(uint256 tokenId) external view returns (address) {
+        return newOwnerOfAuction[tokenId];
+    }
+
+    function getPendingTradePaid(uint256 tokenId) external view returns (bool) {
+        return pendingTrades[tokenId].paid;
+    }
 }
