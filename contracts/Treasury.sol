@@ -15,6 +15,7 @@ contract Treasury is ITreasury, Ownable {
 
     mapping(uint256 tokenId => PendingTrade tradeDetails) private pendingTrades;
     mapping(uint256 tokenId => uint256 allTIPIndex) private tokenIndexes;
+    mapping(uint256 tokenId => address newOwner) private newOwnerOfAuction;
 
     struct PendingTrade {
         address oldOwner;
@@ -32,11 +33,6 @@ contract Treasury is ITreasury, Ownable {
 
     function checkTrade(address auctionAddress) external {
         _auction = IAuction(auctionAddress);
-        //TODO: asset owner is treasury, need require to check auction is auction of this token
-        // require(
-        //     _auction.getOwnerOfAsset() == _assets.ownerOf(tokenId),
-        //     "Treasury: auction owner is not asset owner"
-        // );
         uint256 tokenId = _auction.getTokenId();
         PendingTrade memory tradeInformation = pendingTrades[tokenId];
         require(
@@ -67,7 +63,7 @@ contract Treasury is ITreasury, Ownable {
 
         if (msg.sender == tradeInformation.newOwner) {
             _assets.transferFrom(address(this), msg.sender, tokenId);
-            _auction.updateOwner();
+            _auction.updateOwner(newOwnerOfAuction[tokenId]);
         }
     }
 
@@ -87,6 +83,7 @@ contract Treasury is ITreasury, Ownable {
             msg.value == tradeInformation.price,
             "Treasury: not enougth ETH"
         );
+        newOwnerOfAuction[tokenId] = msg.sender;
         pendingTrades[tokenId].paid = true;
     }
 

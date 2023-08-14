@@ -31,6 +31,7 @@ contract Auction is Pausable, AccessControl {
     }
 
     Bid private lastBid;
+    address private lastBidUser;
     uint256 private initPrice;
     address private assetOwner;
 
@@ -144,6 +145,7 @@ contract Auction is Pausable, AccessControl {
             lastBid.price,
             address(this)
         );
+        lastBidUser = lastBid.user;
         _stopAuction();
 
         emit AcceptOffer(
@@ -261,8 +263,8 @@ contract Auction is Pausable, AccessControl {
         require(sent, "Auction: failed to send Ether");
     }
 
-    function updateOwner() external onlyRole(UNPAUSER_ROLE) {
-        assetOwner = lastBid.user;
+    function updateOwner(address newOwner) external onlyRole(UNPAUSER_ROLE) {
+        assetOwner = newOwner;
     }
 
     function pause() public onlyRole(ADMIN_ROLE) {

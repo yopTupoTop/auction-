@@ -1,5 +1,6 @@
 const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
+const { time } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 
 describe("Treasuty tests", () => {
     let Assets;
@@ -55,11 +56,44 @@ describe("Treasuty tests", () => {
             await assets.connect(address1).approve(auctionAddress, 1);
             await auction.connect(address2).placeBid(ethers.getBigInt("11"));
             await auction.connect(address1).acceptOffer();
-            let tOwner = await assets.ownerOf(1); //treasury 
-            let aOwner = await auction.getOwnerOfAsset(); //address1
-            console.log(tOwner, aOwner, treasuryAddress);
             await treasury.connect(address2).pay(1, {value: ethers.getBigInt("11")});
-            await treasury.checkTrade(1, auctionAddress);
+            let role = await auction.ADMIN_ROLE();
+            let unpauseRole = await auction.UNPAUSER_ROLE();
+            await auction.connect(address1).grantRole(role, treasuryAddress);
+            await auction.connect(address1).grantRole(unpauseRole, treasuryAddress);
+            await treasury.connect(address2).checkTrade(auctionAddress);
+            expect(await assets.ownerOf(1)).to.equal(address2.address);
+            expect(await auction.getOwnerOfAsset()).to.equal(address2.address);
+        });
+        it("check non-existent trade", async() => {
+            await assets.connect(address1).approve(auctionAddress, 1);
+            await auction.connect(address2).placeBid(ethers.getBigInt("11"));
+
+            await expect(treasury.connect(address2).checkTrade(auctionAddress)).revertedWith("Treasury: this trade doesn't exist");
+
+            await auction.connect(address1).acceptOffer();
+            await treasury.connect(address2).pay(1, {value: ethers.getBigInt("11")});
+            let role = await auction.ADMIN_ROLE();
+            let unpauseRole = await auction.UNPAUSER_ROLE();
+            await auction.connect(address1).grantRole(role, treasuryAddress);
+            await auction.connect(address1).grantRole(unpauseRole, treasuryAddress);
+            await treasury.connect(address2).checkTrade(auctionAddress);
+        });
+        it("check trade after time expired", async() => {
+            await assets.connect(address1).approve(auctionAddress, 1);
+            await auction.connect(address2).placeBid(ethers.getBigInt("11"));
+            await auction.connect(address1).acceptOffer();
+
+            await time.increase(3660);
+
+            await expect(treasury.connect(address2).checkTrade(auctionAddress)).revertedWith("Treasury: trade time expired");
+        });
+        it("check unpaid trade", async() => {
+            await assets.connect(address1).approve(auctionAddress, 1);
+            await auction.connect(address2).placeBid(ethers.getBigInt("11"));
+            await auction.connect(address1).acceptOffer();
+
+            await expect(treasury.connect(address2).checkTrade(auctionAddress)).revertedWith( "Treasury: not paid yet");
         });
     });
 });

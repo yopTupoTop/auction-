@@ -17,7 +17,7 @@ interface IAuction {
     
     function getTokenId() external returns (uint256);
 
-    function updateOwner() external;
+    function updateOwner(address) external;
 
     function pause() external;
 
