@@ -2,13 +2,14 @@ pragma solidity ^0.8.18;
 
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "contracts/interfaces/IAuction.sol";
 import "contracts/interfaces/IAssets.sol";
 import "contracts/interfaces/IBlacklist.sol";
 import "contracts/interfaces/ITreasury.sol";
 
-contract Auction is Pausable, AccessControl {
+contract Auction is Pausable, AccessControl, ReentrancyGuard {
     uint256 public constant FEE = 3;
     uint256 public constant DISTINCTION = 3;
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
@@ -166,7 +167,7 @@ contract Auction is Pausable, AccessControl {
     // buyer functions
     //--------------------
 
-    function buyAsset() external payable whenNotPaused {
+    function buyAsset() external payable whenNotPaused nonReentrant {
         require(!_isContract(msg.sender), "Auction: only EOA");
         require(msg.value == lastBid.price, "Auction: not enougth ETH");
         require(
@@ -177,10 +178,6 @@ contract Auction is Pausable, AccessControl {
             lastBid.user != msg.sender,
             "Auction: you tried to buy your token"
         );
-        (bool sent, ) = assetOwner.call{
-            value: msg.value - (msg.value / 100) * FEE
-        }("Your token has been purchased");
-        require(sent, "Auction: failed to send Ether");
         require(
             !_blacklist.isInBlacklist(msg.sender),
             "Auction: blacklisted user cannot buy"
@@ -190,6 +187,14 @@ contract Auction is Pausable, AccessControl {
         _assets.transferFrom(assetOwner, msg.sender, _tokenId);
         assetOwner = msg.sender;
         _stopAuction();
+        (bool sent, ) = assetOwner.call{
+            value: msg.value - (msg.value / 100) * FEE
+        }("Your token has been purchased");
+        require(sent, "Auction: failed to send Ether");
+        require(
+            !_blacklist.isInBlacklist(msg.sender),
+            "Auction: blacklisted user cannot buy"
+        );
         emit BuyAsset(msg.sender, _tokenId, lastBid.price, block.timestamp);
     }
 
